@@ -1,0 +1,10 @@
+{
+  "source": "SeQUeNCe.DQC manuscript, 3-grovers.tex, Section 3; snapshot 2026-10-28",
+  "shots_per_state": 2000,
+  "note": "Rounded simulation percentages transcribed from the manuscript, not raw shot counts. Nature's 71(1)% is an experimental average, not per-state measurements.",
+  "series": {
+    "Noiseless": [1.0, 1.0, 1.0, 1.0],
+    "Lumped": [0.722, 0.718, 0.736, 0.712],
+    "Detailed": [0.734, 0.735, 0.738, 0.744]
+  }
+}

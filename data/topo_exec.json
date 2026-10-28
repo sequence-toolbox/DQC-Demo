@@ -1,0 +1,44 @@
+{
+  "experiment": "topo_exec",
+  "n": 6,
+  "marked": 63,
+  "iters": 6,
+  "modules": 10,
+  "z": 0.95,
+  "shots": 1000,
+  "rows": [
+    {
+      "name": "star",
+      "key": "star",
+      "gates": 588,
+      "moves": 0,
+      "sim_ms": 887.43,
+      "success": 0.15,
+      "successes": 150,
+      "shots": 1000,
+      "noiseless_ok": true
+    },
+    {
+      "name": "grid",
+      "key": "grid",
+      "gates": 588,
+      "moves": 0,
+      "sim_ms": 818.07,
+      "success": 0.212,
+      "successes": 212,
+      "shots": 1000,
+      "noiseless_ok": true
+    },
+    {
+      "name": "caveman",
+      "key": "caveman",
+      "gates": 588,
+      "moves": 0,
+      "sim_ms": 733.59,
+      "success": 0.271,
+      "successes": 271,
+      "shots": 1000,
+      "noiseless_ok": true
+    }
+  ]
+}

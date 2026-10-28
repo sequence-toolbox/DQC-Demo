@@ -1,0 +1,128 @@
+{
+  "experiment": "compiler_comparison",
+  "n": 4,
+  "marked": 15,
+  "iters": 3,
+  "cap": 3,
+  "z": 0.95,
+  "shots": 1000,
+  "amaro_attempts": 2,
+  "rows": [
+    {
+      "label": "random",
+      "key": "random",
+      "gates": 87.0,
+      "moves": 0.0,
+      "sim_ms": 107.04,
+      "success": 0.786,
+      "successes": null,
+      "shots": 1000,
+      "placements": 20,
+      "gates_std": 20.65,
+      "moves_std": 0.0,
+      "sim_ms_std": 27.16,
+      "success_std": 0.0347,
+      "noiseless_ok": true,
+      "cache": ".cache/compiler__random_s*.pkl"
+    },
+    {
+      "label": "qap",
+      "key": "qap",
+      "gates": 48,
+      "moves": 0,
+      "sim_ms": 54.56,
+      "success": 0.86,
+      "successes": 860,
+      "shots": 1000,
+      "noiseless_ok": true,
+      "cache": ".cache/compiler__qap.pkl"
+    },
+    {
+      "label": "fgp\nla10 mm1.25",
+      "key": "fgp_la10",
+      "gates": 48,
+      "moves": 0,
+      "sim_ms": 54.56,
+      "success": 0.86,
+      "successes": 860,
+      "shots": 1000,
+      "noiseless_ok": true,
+      "cache": ".cache/compiler__fgp_la10.pkl"
+    },
+    {
+      "label": "fgp\nla20 mm1.0",
+      "key": "fgp_la20",
+      "gates": 6,
+      "moves": 24,
+      "sim_ms": 31.41,
+      "success": 0.893,
+      "successes": 893,
+      "shots": 1000,
+      "noiseless_ok": true,
+      "cache": ".cache/compiler__fgp_la20.pkl"
+    },
+    {
+      "label": "fgp\nmm0 forced",
+      "key": "fgp_mm0",
+      "gates": 0,
+      "moves": 104,
+      "sim_ms": 99.88,
+      "success": 0.732,
+      "successes": 732,
+      "shots": 1000,
+      "noiseless_ok": true,
+      "cache": ".cache/compiler__fgp_mm0.pkl"
+    },
+    {
+      "label": "amaro\n1:2",
+      "key": "amaro_1_2",
+      "gates": 48,
+      "moves": 0,
+      "sim_ms": 54.56,
+      "success": 0.858,
+      "successes": 858,
+      "shots": 1000,
+      "noiseless_ok": true,
+      "cache": ".cache/compiler__amaro_1_2.pkl",
+      "amaro": {
+        "link_cost": 1,
+        "teleport_cost": 2,
+        "cost": 48.0
+      }
+    },
+    {
+      "label": "amaro\n2:2",
+      "key": "amaro_2_2",
+      "gates": 5,
+      "moves": 42,
+      "sim_ms": 42.08,
+      "success": 0.852,
+      "successes": 852,
+      "shots": 1000,
+      "noiseless_ok": true,
+      "cache": ".cache/compiler__amaro_2_2.pkl",
+      "amaro": {
+        "link_cost": 2,
+        "teleport_cost": 2,
+        "cost": 48.0
+      }
+    },
+    {
+      "label": "amaro\n3:2",
+      "key": "amaro_3_2",
+      "gates": 0,
+      "moves": 56,
+      "sim_ms": 56.94,
+      "success": 0.83,
+      "successes": 830,
+      "shots": 1000,
+      "noiseless_ok": true,
+      "cache": ".cache/compiler__amaro_3_2.pkl",
+      "amaro": {
+        "link_cost": 3,
+        "teleport_cost": 2,
+        "cost": 56.0
+      }
+    }
+  ]
+}
