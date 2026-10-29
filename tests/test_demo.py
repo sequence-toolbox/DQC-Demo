@@ -2,6 +2,7 @@
 import time
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from streamlit.testing.v1 import AppTest
 
@@ -33,6 +34,19 @@ class AppTests(unittest.TestCase):
         radio(app, "Experience").set_value("Live simulation").run()
         self.assertFalse(app.exception)
         self.assertTrue(any(b.label == "Compile and simulate" for b in app.button))
+        self.assertEqual(next(w for w in app.selectbox if w.label == "Network topology").options, ["Star", "Grid", "Caveman"])
+        fiber = next(w for w in app.slider if w.label == "Fiber length parameter (km)")
+        self.assertEqual((fiber.proto.min, fiber.proto.max), (0.01, 20.0))
+        fiber.set_value(20.0)
+        next(w for w in app.slider if w.label == "Simulation shots").set_value(1000)
+        quality = next(w for w in app.select_slider if w.label == "Hardware quality (z)")
+        self.assertEqual(quality.options, ["0.00", "0.25", "0.50", "0.65", "0.80", "0.90", "0.95", "1.00"])
+        quality.set_value(0.25)
+        with patch("demo.jobs.start", return_value={"config": {}}) as start, patch("demo.jobs.poll", return_value=("running", {"value": 0, "message": "Testing submission"})):
+            next(b for b in app.button if b.label == "Compile and simulate").click().run()
+        submitted = start.call_args.args[0]
+        self.assertEqual((submitted["link_km"], submitted["shots"], submitted["z"]), (20.0, 1000, 0.25))
+        self.assertFalse(app.exception)
 
     def test_live_history_renders(self):
         app = AppTest.from_file(APP, default_timeout=20)
@@ -67,8 +81,8 @@ class SimulationTests(unittest.TestCase):
         self.assertIsNotNone(job["process"].poll())
 
     def test_real_network_and_compiler(self):
-        config = {"scenario": "exploration", "qubits": 3, "modules": 4, "shots": 1, "topology": "Grid",
-                  "compiler": "FGP · default", "link_km": 5., "efficiency": .9, "noise": True, "seed": 1}
+        config = {"scenario": "exploration", "qubits": 3, "modules": 4, "shots": 1, "topology": "Caveman",
+                  "compiler": "FGP · default", "link_km": .01, "efficiency": .9, "noise": True, "z": .25, "seed": 1}
         result = simulate(config, lambda *args: None)
         self.assertEqual(result["total_qubits"], 4)
         self.assertEqual(result["capacity"], 1)

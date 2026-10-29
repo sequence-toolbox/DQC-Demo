@@ -4,12 +4,12 @@ import math
 import networkx as nx
 import plotly.graph_objects as go
 
-COLORS = ["#22c8b5", "#719cff", "#f3bc65", "#d994ff"]
+COLORS = ["#0d9488", "#4878d0", "#c58a21", "#995ac6"]
 
 
 def style(fig, height=340):
-    fig.update_layout(template="plotly_dark", paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                      font={"family": "Arial", "color": "#dbe6f6"}, margin={"l": 30, "r": 20, "t": 45, "b": 35},
+    fig.update_layout(template="plotly_white", paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                      font={"family": "Arial", "color": "#172b42"}, margin={"l": 30, "r": 20, "t": 45, "b": 35},
                       height=height, legend={"orientation": "h", "y": 1.16})
     return fig
 
@@ -33,7 +33,11 @@ def network(kind="Two modules", modules=2, edges=None, capacity=1):
     elif kind == "Grid":
         graph = nx.convert_node_labels_to_integers(nx.grid_2d_graph(2, modules // 2))
     elif kind == "Caveman":
-        graph = nx.connected_caveman_graph(2, modules // 2)
+        if modules <= 4:
+            graph = nx.caveman_graph(2, modules // 2)
+            graph.add_edge(modules // 2 - 1, modules // 2)
+        else:
+            graph = nx.connected_caveman_graph(2, modules // 2)
     else:
         graph = nx.path_graph(2) if modules == 2 else nx.cycle_graph(modules)
     positions = nx.spring_layout(graph, seed=7)
@@ -62,7 +66,7 @@ def circuit():
         fig.add_trace(go.Scatter(x=[0, 7], y=[y, y], mode="lines", line={"color": "#48748d", "width": 2}, showlegend=False, hoverinfo="skip"))
         fig.add_annotation(x=-0.1, y=y, text=name, xanchor="right", showarrow=False)
         for x, gate in ((0.6, "H"), (3.2, "H · X"), (5.7, "X · H"), (6.8, "M")):
-            fig.add_annotation(x=x, y=y, text=gate, showarrow=False, bgcolor="#203854", borderpad=6)
+            fig.add_annotation(x=x, y=y, text=gate, showarrow=False, bgcolor="#e8eef6", borderpad=6)
     for x, label in ((1.9, "Oracle"), (4.5, "Diffusion")):
         fig.add_trace(go.Scatter(x=[x, x], y=[0, 1], mode="lines+markers", marker={"size": 12, "color": COLORS[0]}, line={"color": COLORS[0], "width": 3}, showlegend=False, hoverinfo="skip"))
         fig.add_annotation(x=x, y=1.65, text=f"{label}<br>teleported CZ", showarrow=False, font={"color": COLORS[0]} )
@@ -84,8 +88,8 @@ def success_chart(series):
         fig.add_trace(go.Bar(name=label, x=[f"|{r['state']}〉" for r in rows], y=values,
                              marker_color=COLORS[i % len(COLORS)], error_y=errors,
                              hovertemplate="%{x}<br>%{y:.1f}% success<extra>%{fullData.name}</extra>"))
-    fig.add_hrect(y0=70, y1=72, fillcolor="#f3bc65", opacity=0.12, line_width=0)
-    fig.add_hline(y=71, line_dash="dash", line_color="#f3bc65", annotation_text="Nature · 71(1)% average")
+    fig.add_hrect(y0=70, y1=72, fillcolor="#c58a21", opacity=0.12, line_width=0)
+    fig.add_hline(y=71, line_dash="dash", line_color="#a66b0c", annotation_text="Nature · 71% average")
     fig.update_layout(barmode="group", yaxis_title="Success probability (%)", yaxis_range=[0, 110], xaxis_title="Marked state")
     return style(fig, 390)
 

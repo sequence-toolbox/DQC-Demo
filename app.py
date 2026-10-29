@@ -12,9 +12,9 @@ st.set_page_config(page_title="SeQUeNCe.DQC · SC26", page_icon="⚛", layout="w
 st.markdown("""<style>
 .block-container {max-width: 1450px; padding-top: 2.2rem;}
 h1 {letter-spacing: -.045em; font-weight: 750;}
-[data-testid="stMetric"] {background: #142136; padding: 18px; border-radius: 12px;}
-[data-testid="stSidebar"] {border-right: 1px solid #253951;}
-.eyebrow {color: #22c8b5; letter-spacing: .16em; font-size: .78rem; font-weight: 700;}
+[data-testid="stMetric"] {background: #f3f6fa; padding: 18px; border-radius: 12px;}
+[data-testid="stSidebar"] {border-right: 1px solid #dce4ee;}
+.eyebrow {color: #087f73; letter-spacing: .16em; font-size: .78rem; font-weight: 700;}
 </style>""", unsafe_allow_html=True)
 
 
@@ -93,7 +93,7 @@ def nature_page():
             choices = list(range(len(history)))
             chosen = st.multiselect("Compare completed runs", choices, default=choices[-2:], format_func=lambda i: f"Run {i + 1} · {history[i]['model']} · {history[i]['total_shots']} shots")
             series = {f"Run {i + 1} · {history[i]['model']}": history[i]["rows"] for i in chosen}
-            st.caption("LIVE SIMULATION · bars show 95% Wilson intervals · Nature band is the reported 71(1)% average")
+            st.caption("LIVE SIMULATION · bars show 95% Wilson intervals · Nature band is the reported 71% average")
             st.plotly_chart(charts.success_chart(series), width="stretch", key="live_success")
             latest = history[-1]
             columns = st.columns(3)
@@ -111,7 +111,7 @@ def nature_page():
     with st.expander("What is reproduced?", expanded=False):
         st.write("The live run uses the existing density-matrix telegate and BSM pipeline, with the compiler fixed. The lumped model applies effective CZ and Bell error channels to data qubits after each teleported CZ. The detailed model uses the Table 1 budget plus local-gate and final-readout errors.")
         st.write("These are effective calibrated noise models. Bell errors are injected after the gate; this view does not claim microscopic trapped-ion modeling. Link distance is fixed by the existing reproduction pipeline, and decoherence is a fixed error-budget term.")
-        st.write("The manuscript reports 72.2% (lumped) and 73.8% (detailed), compared with the experimental 71(1)% average. Finite-shot live runs will vary. The shaded experimental band is not a 95% confidence interval.")
+        st.write("The manuscript reports 72.2% (lumped) and 73.8% (detailed), compared with the experimental 71% average. Finite-shot live runs will vary. The shaded experimental band is not a 95% confidence interval.")
         st.caption(reference["source"])
 
 
@@ -153,16 +153,18 @@ def live_exploration():
         with st.form("explore_controls"):
             qubits = st.selectbox("Search qubits", [3, 4], index=1)
             modules = st.selectbox("Quantum modules", [2, 4])
-            topology = st.selectbox("Network topology", ["Star", "Ring", "Grid"])
+            topology = st.selectbox("Network topology", ["Star", "Grid", "Caveman"])
             compiler = st.selectbox("Compiler", ["QAP", "Random", "FGP · default", "FGP · low margin"])
-            link = st.slider("Fiber length parameter (km)", 1.0, 10.0, 5.0, 0.5)
+            link = st.slider("Fiber length parameter (km)", 0.01, 20.0, 5.0, 0.01, format="%.2f")
             efficiency = st.slider("Memory efficiency", 0.5, 1.0, 0.9, 0.05)
-            noise = st.checkbox("Include hardware noise (z = 0.95)", value=True)
-            shots = st.select_slider("Simulation shots", [1, 5, 10, 20], value=5)
+            noise = st.checkbox("Include hardware noise", value=True)
+            z = st.select_slider("Hardware quality (z)", options=[0.00, 0.25, 0.50, 0.65, 0.80, 0.90, 0.95, 1.00], value=0.95, format_func=lambda value: f"{value:.2f}")
+            st.caption("Higher z improves hardware quality. This setting applies when hardware noise is enabled.")
+            shots = st.slider("Simulation shots", 1, 1000, 5)
             seed = st.number_input("Random seed", min_value=0, max_value=1000000, value=1, key="explore_seed")
             if st.form_submit_button("Compile and simulate", type="primary", disabled="job" in st.session_state):
                 launch({"scenario": "exploration", "qubits": qubits, "modules": modules, "topology": topology,
-                        "compiler": compiler, "link_km": link, "efficiency": efficiency, "noise": noise, "shots": shots, "seed": seed})
+                        "compiler": compiler, "link_km": link, "efficiency": efficiency, "noise": noise, "z": z, "shots": shots, "seed": seed})
                 st.rerun()
         st.caption("Small workloads keep live runs practical. Capacity is balanced automatically to hold the circuit and its ancillas. The fiber parameter is passed directly to the engine’s link_km setting.")
     with right:
@@ -184,7 +186,8 @@ def live_exploration():
         st.caption("Small shot counts are for interaction; use the saved 1,000-shot datasets for more precise success comparisons. Simulated execution time differs from laptop wall time.")
         st.dataframe([{"Run": i + 1, "Network": r["config"]["topology"], "Compiler": r["config"]["compiler"],
                        "Fiber (km)": r["config"]["link_km"], "Memory efficiency": r["config"]["efficiency"],
-                       "Noise": r["config"]["noise"], "Seed": r["config"]["seed"], "Search qubits": r["config"]["qubits"],
+                       "Noise": r["config"]["noise"], "z": r["config"].get("z", 0.95) if r["config"]["noise"] else None,
+                       "Seed": r["config"]["seed"], "Search qubits": r["config"]["qubits"],
                        "Modules": r["config"]["modules"], "Time (ms)": round(r["sim_ms"], 2),
                        "Remote gates": r["gates"], "Moves": r["moves"], "Success (%)": round(r["success"] * 100, 1),
                        "Shots": r["total_shots"]} for i, r in enumerate(history)], hide_index=True, width="stretch")
@@ -198,7 +201,6 @@ with st.sidebar:
     st.divider()
     st.write("**The question**")
     st.write("How does a quantum network shape distributed quantum computation?")
-    st.caption("Runs locally · Python + Streamlit + Plotly")
     if st.session_state.get("nature_history") or st.session_state.get("exploration_history"):
         st.caption("Completed live runs are available in each scenario and saved under runs/.")
 

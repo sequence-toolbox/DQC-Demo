@@ -61,12 +61,19 @@ def exploration(config, progress):
     from sequence.dqc.compilers.fgp import FGPCompiler
     from sequence.dqc.runtime import run
     from dqc_experiments.circuits.grover_circuit_builder import GroverCircuitBuilder
-    from dqc_experiments.noise_z import apply_z
+    from dqc_experiments.noise_z import ZTABLE, apply_z
 
     n, modules, shots = int(config["qubits"]), int(config["modules"]), int(config["shots"])
-    if n not in (3, 4) or modules not in (2, 4) or not 1 <= shots <= 20:
+    if n not in (3, 4) or modules not in (2, 4) or not 1 <= shots <= 1000:
         raise ValueError("Invalid live exploration size")
-    graphs = {"Star": nx.star_graph(modules - 1), "Ring": nx.cycle_graph(modules),
+    z = config.get("z", 0.95)
+    if z not in ZTABLE:
+        raise ValueError("Hardware quality z must be one of the supported ZTABLE values")
+    if not 0.01 <= config["link_km"] <= 20:
+        raise ValueError("Fiber length must be between 0.01 and 20 km")
+    caveman = nx.caveman_graph(2, modules // 2)
+    caveman.add_edge(modules // 2 - 1, modules // 2)
+    graphs = {"Star": nx.star_graph(modules - 1), "Caveman": caveman,
               "Grid": nx.convert_node_labels_to_integers(nx.grid_2d_graph(2, modules // 2))}
     circuit = GroverCircuitBuilder(n, [2 ** n - 1], round(math.pi / 4 * math.sqrt(2 ** n))).build_grover_circuit()
     capacity = math.ceil(circuit.size / modules)
@@ -76,7 +83,7 @@ def exploration(config, progress):
         topology.link_km = config["link_km"]
         topology.mem_efficiency = config["efficiency"]
         if config["noise"]:
-            apply_z(topology, 0.95)
+            apply_z(topology, z)
         return topology
 
     if config["compiler"] == "FGP · low margin":
