@@ -1,6 +1,9 @@
 """Behavior checks for the demo and its real simulation boundary."""
 import time
 import unittest
+import subprocess
+import sys
+import textwrap
 from pathlib import Path
 from unittest.mock import patch
 
@@ -61,6 +64,33 @@ class AppTests(unittest.TestCase):
 
 
 class SimulationTests(unittest.TestCase):
+    def test_runs_without_experiment_package(self):
+        code = textwrap.dedent('''
+            import sys
+            import importlib.abc
+
+            class BlockExperiments(importlib.abc.MetaPathFinder):
+                def find_spec(self, fullname, path=None, target=None):
+                    if fullname == "dqc_experiments" or fullname.startswith("dqc_experiments."):
+                        raise ImportError("Experiment package is unavailable in this test")
+
+            sys.meta_path.insert(0, BlockExperiments())
+            from demo.simulation import simulate
+            for model in ("Noiseless", "Detailed"):
+                result = simulate(dict(scenario="nature", model=model, bell=.9689, shots=1, seed=1), lambda *args: None)
+                assert result["total_shots"] == 4
+                assert "experiments" not in result["source_paths"]
+                if model == "Noiseless":
+                    assert result["success"] == 1.
+            result = simulate(dict(scenario="exploration", qubits=3, modules=2, shots=1, topology="Star",
+                                   compiler="QAP", link_km=.01, efficiency=.9, noise=True, z=.25, seed=1), lambda *args: None)
+            assert result["total_qubits"] == 4
+            assert result["shots"][0]["reached"] >= result["shots"][0]["steps"]
+            assert not any(name == "dqc_experiments" or name.startswith("dqc_experiments.") for name in sys.modules)
+        ''')
+        result = subprocess.run([sys.executable, "-c", code], cwd=Path(APP).parent, capture_output=True, text=True, timeout=90)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
     def test_real_noiseless_worker_and_cancel(self):
         config = {"scenario": "nature", "model": "Noiseless", "bell": 1., "shots": 1, "seed": 1}
         job = jobs.start(config)

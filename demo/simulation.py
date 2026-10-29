@@ -11,21 +11,20 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def connect_sources():
-    """Prefer the requested local source checkouts over unrelated installed packages."""
+    """Load the SeQUeNCe engine; experiment adapters live in this repository."""
     engine = Path(os.environ.get("SEQUENCE_DQC_ROOT", ROOT.parent / "SeQUeNCe.DQC"))
-    experiments = Path(os.environ.get("DQC_EXPERIMENTS_ROOT", ROOT.parent / "dqc-experiments"))
-    for path in (experiments, engine):
-        if not path.is_dir():
-            raise FileNotFoundError(f"Source checkout missing: {path}. See README.md for setup.")
-        sys.path.insert(0, str(path))
+    if not engine.is_dir():
+        raise FileNotFoundError(f"Source checkout missing: {engine}. See README.md for setup.")
+    if str(engine) not in sys.path:
+        sys.path.insert(0, str(engine))
     cache = ROOT / "runs" / ".matplotlib"
     cache.mkdir(parents=True, exist_ok=True)
     os.environ.setdefault("MPLCONFIGDIR", str(cache))
-    return {"engine": str(engine), "experiments": str(experiments)}
+    return {"engine": str(engine), "demo": str(ROOT)}
 
 
 def nature(config, progress):
-    from dqc_experiments.paper_replication.grover_2node_pipeline import TABLE1_BUDGET, run_single
+    from demo.grover.nature_pipeline import TABLE1_BUDGET, run_single
 
     model, shots = config["model"], int(config["shots"])
     if model not in ("Noiseless", "Detailed") or not 1 <= shots <= 2000:
@@ -60,8 +59,8 @@ def exploration(config, progress):
     from sequence.dqc.compilers import build_compiler
     from sequence.dqc.compilers.fgp import FGPCompiler
     from sequence.dqc.runtime import run
-    from dqc_experiments.circuits.grover_circuit_builder import GroverCircuitBuilder
-    from dqc_experiments.noise_z import ZTABLE, apply_z
+    from demo.grover.grover_circuit_builder import GroverCircuitBuilder
+    from demo.grover.noise_z import ZTABLE, apply_z
 
     n, modules, shots = int(config["qubits"]), int(config["modules"]), int(config["shots"])
     if n not in (3, 4) or modules not in (2, 4) or not 1 <= shots <= 1000:

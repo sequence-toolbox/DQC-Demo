@@ -19,15 +19,15 @@ The prepared `.venv` inherits scientific dependencies from the existing `dqc` co
 
 ## Set up another environment
 
-Use the Python version supported by both local projects (this laptop uses Python 3.14):
+Use the Python version supported by SeQUeNCe.DQC (this laptop uses Python 3.14):
 
 ```bash
 python -m venv .venv
-.venv/bin/python -m pip install -e ../SeQUeNCe.DQC -e ../dqc-experiments
+.venv/bin/python -m pip install -e ../SeQUeNCe.DQC
 .venv/bin/python -m pip install -r requirements.txt
 ```
 
-By default, the live worker imports these sibling checkouts directly. For different locations, set `SEQUENCE_DQC_ROOT` and `DQC_EXPERIMENTS_ROOT` to their absolute paths before launching. Saved results are available without the simulation checkouts; live runs display an error if the sources or their dependencies are missing.
+The live worker uses the sibling SeQUeNCe.DQC engine checkout. For a different location, set `SEQUENCE_DQC_ROOT` to its absolute path before launching. Circuit builders, the Nature simulation adapter, and hardware-noise settings are included under `demo/`; installing or keeping the dqc-experiments repository is not required. Saved results are available without the engine checkout; live runs display an error if the engine or its dependencies are missing.
 
 ## Demo walkthrough
 
@@ -54,7 +54,8 @@ By default, the live worker imports these sibling checkouts directly. For differ
 
 - `data/nature_reference.json`: rounded Section 3 simulation results transcribed from the local manuscript, snapshot 2026-10-29. The experimental average is quoted by that section.
 - `data/topo_exec.json`, `data/compiler_comparison.json`: unchanged snapshots of the matching files under the sibling `dqc-experiments/dqc_experiments/results/`, taken 2026-10-28. Original metadata is preserved. In particular, the random compiler row is an average over placements; its shot metadata should be interpreted using the originating experiment rather than as a single binomial sample.
-- Live execution uses `paper_replication/grover_2node_pipeline.run_single` and `sequence.dqc.runtime.run`. It does not modify either source project.
+- Live execution uses the local `demo.grover.nature_pipeline.run_single` and the SeQUeNCe engine's `sequence.dqc.runtime.run`. It does not import the experiment package or modify the engine.
+- Copied from dqc-experiments on 2026-10-29: `circuits/grover_circuit_builder.py`, `paper_replication/cz_grover_circuit_builder.py`, `paper_replication/noisy_barrier.py`, `paper_replication/grover_2node_pipeline.py`, and `noise_z.py`. Their local counterparts are `demo/grover/grover_circuit_builder.py`, `demo/grover/cz_grover_circuit_builder.py`, `demo/grover/noisy_barrier.py`, `demo/grover/nature_pipeline.py`, and `demo/grover/noise_z.py`. Imports now reference local modules; the unused runner CLI was omitted. Simulation algorithms and noise parameters are preserved.
 - Download buttons export settings alongside results. Live run folders contain configuration, progress, result/error JSON, and worker logs.
 
 ## Verification
@@ -63,4 +64,4 @@ By default, the live worker imports these sibling checkouts directly. For differ
 .venv/bin/python -m unittest discover -s tests -v
 ```
 
-Tests cover page navigation and chart rendering, a real noiseless two-node worker run over all four marked states, real compiler/network execution, and cancellation.
+Tests cover page navigation and chart rendering, a real noiseless two-node worker run over all four marked states, real compiler/network execution, cancellation, and both demo scenarios with imports of the experiment package explicitly blocked.
