@@ -28,11 +28,11 @@ def nature(config, progress):
     from dqc_experiments.paper_replication.grover_2node_pipeline import TABLE1_BUDGET, run_single
 
     model, shots = config["model"], int(config["shots"])
-    if model not in ("Noiseless", "Lumped", "Detailed") or not 1 <= shots <= 2000:
+    if model not in ("Noiseless", "Detailed") or not 1 <= shots <= 2000:
         raise ValueError("Invalid Nature reproduction configuration")
-    bell, cz = config["bell"], config["cz"]
-    if not 0.5 <= bell <= 1 or not 0.5 <= cz <= 1:
-        raise ValueError("Fidelities must be between 0.5 and 1")
+    bell, cz = config["bell"], 1.0
+    if not 0.5 <= bell <= 1:
+        raise ValueError("Bell fidelity must be between 0.5 and 1")
     if model == "Noiseless":
         bell = cz = 1.0
     budget = {**TABLE1_BUDGET, "raw_entanglement": 1 - bell} if model == "Detailed" else None

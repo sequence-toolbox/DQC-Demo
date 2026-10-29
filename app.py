@@ -66,27 +66,26 @@ def nature_page():
         st.plotly_chart(charts.network(), width="stretch", key="nature_network")
         st.caption("One data qubit per module. Two teleported CZ gates connect the oracle and diffusion steps.")
         with st.form("nature_controls"):
-            model = st.selectbox("Noise model", ["Lumped", "Detailed", "Noiseless"])
+            model = st.selectbox("Noise model", ["Detailed", "Noiseless"])
             bell = st.slider("Bell-pair fidelity", 0.80, 1.0, 0.9689, 0.0001, format="%.4f")
-            cz = st.slider("Teleported-CZ average gate fidelity (lumped only)", 0.70, 1.0, 0.862, 0.001, format="%.3f")
-            st.caption("Detailed: Bell fidelity changes the raw-entanglement budget; other Table 1 terms stay fixed. Noiseless: both fidelity controls are ignored.")
+            st.caption("Detailed: Bell fidelity changes the raw-entanglement budget; other Table 1 terms stay fixed. Noiseless: Bell fidelity is ignored.")
             shots = st.select_slider("Shots per marked state", options=[10, 25, 50, 100, 250, 500, 2000], value=25)
             seed = st.number_input("Random seed", min_value=0, max_value=1000000, value=1, key="nature_seed")
             if st.form_submit_button("Run distributed Grover", type="primary", disabled="job" in st.session_state):
-                launch({"scenario": "nature", "model": model, "bell": bell, "cz": cz, "shots": shots, "seed": seed})
+                launch({"scenario": "nature", "model": model, "bell": bell, "shots": shots, "seed": seed})
                 st.rerun()
     with right:
         st.subheader("From circuit to experiment")
         st.plotly_chart(charts.circuit(), width="stretch", key="nature_circuit")
         st.caption("Schematic: marked-state X masks around the oracle are omitted. Each CZ uses the network; local gates stay on their module.")
         reference = load_data("nature_reference")
-        history = st.session_state.get("nature_history", [])
+        history = [r for r in st.session_state.get("nature_history", []) if r["model"] in ("Detailed", "Noiseless")]
         view = st.radio("Results", ["Manuscript reference", "Live runs"], horizontal=True, key="nature_view")
         if view == "Manuscript reference":
             series = {label: [{"state": f"{i:02b}", "success": value} for i, value in enumerate(values)] for label, values in reference["series"].items()}
             st.caption("SAVED REFERENCE · 2,000 shots per state · rounded values from Section 3")
             st.plotly_chart(charts.success_chart(series), width="stretch", key="reference_success")
-            columns = st.columns(3)
+            columns = st.columns(len(series))
             for column, (label, values) in zip(columns, reference["series"].items()):
                 column.metric(label, f"{100 * sum(values) / 4:.1f}%")
         elif history:
@@ -102,16 +101,15 @@ def nature_page():
             columns[2].metric("Wall time", f"{latest['wall_seconds']:.1f} s")
             st.json(latest["config"], expanded=False)
             st.dataframe([{"Run": i + 1, "Model": r["model"], "Bell fidelity": r["config"].get("bell"),
-                           "CZ fidelity (lumped)": r["config"].get("cz") if r["model"] == "Lumped" else None,
                            "Shots": r["total_shots"], "Success (%)": round(r["success"] * 100, 1)}
                           for i, r in enumerate(history)], hide_index=True, width="stretch")
             results_download({"runs": history}, "nature")
         else:
             st.info("Run a simulation to compare all four marked states. Start with 25 shots per state; increase for a more precise estimate.")
     with st.expander("What is reproduced?", expanded=False):
-        st.write("The live run uses the existing density-matrix telegate and BSM pipeline, with the compiler fixed. The lumped model applies effective CZ and Bell error channels to data qubits after each teleported CZ. The detailed model uses the Table 1 budget plus local-gate and final-readout errors.")
+        st.write("The live run uses the existing density-matrix telegate and BSM pipeline, with the compiler fixed. The detailed model uses the Table 1 budget plus local-gate and final-readout errors. The noiseless control disables these noise channels.")
         st.write("These are effective calibrated noise models. Bell errors are injected after the gate; this view does not claim microscopic trapped-ion modeling. Link distance is fixed by the existing reproduction pipeline, and decoherence is a fixed error-budget term.")
-        st.write("The manuscript reports 72.2% (lumped) and 73.8% (detailed), compared with the experimental 71% average. Finite-shot live runs will vary. The shaded experimental band is not a 95% confidence interval.")
+        st.write("The manuscript reports 73.8% for the detailed model, compared with the experimental 71% average. Finite-shot live runs will vary. The shaded experimental band is not a 95% confidence interval.")
         st.caption(reference["source"])
 
 

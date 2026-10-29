@@ -20,7 +20,8 @@ class AppTests(unittest.TestCase):
     def test_navigation_and_saved_comparisons(self):
         app = AppTest.from_file(APP, default_timeout=20).run()
         self.assertFalse(app.exception)
-        self.assertEqual([m.value for m in app.metric], ["100.0%", "72.2%", "73.8%"])
+        self.assertEqual([m.value for m in app.metric], ["100.0%", "73.8%"])
+        self.assertEqual(next(w for w in app.selectbox if w.label == "Noise model").options, ["Detailed", "Noiseless"])
         radio(app, "Results").set_value("Live runs").run()
         self.assertFalse(app.exception)
         self.assertTrue(app.info)
@@ -61,7 +62,7 @@ class AppTests(unittest.TestCase):
 
 class SimulationTests(unittest.TestCase):
     def test_real_noiseless_worker_and_cancel(self):
-        config = {"scenario": "nature", "model": "Noiseless", "bell": 1., "cz": 1., "shots": 1, "seed": 1}
+        config = {"scenario": "nature", "model": "Noiseless", "bell": 1., "shots": 1, "seed": 1}
         job = jobs.start(config)
         try:
             deadline = time.monotonic() + 90

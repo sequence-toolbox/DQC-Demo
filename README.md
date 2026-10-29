@@ -2,7 +2,7 @@
 
 A local Streamlit + Plotly app with two scenarios:
 
-1. **Nature reproduction:** the two-node Grover experiment from Section 3 of the manuscript. The compiler is fixed. Run the existing density-matrix/BSM/telegate pipeline with noiseless, lumped, or detailed noise. Change Bell fidelity, and (for lumped noise) teleported-CZ fidelity. Compare all four marked states with the manuscript and the experimental 71% average.
+1. **Nature reproduction:** the two-node Grover experiment from Section 3 of the manuscript. The compiler is fixed. Run the existing density-matrix/BSM/telegate pipeline with the noiseless control or detailed noise model. Change Bell fidelity in the detailed model. Compare all four marked states with the manuscript and the experimental 71% average.
 2. **Networks & compilers:** explore saved manuscript topology/compiler results immediately, or run small live Grover workloads while changing topology, compiler, fiber length, memory efficiency, and hardware noise.
 
 ## Run on this laptop
@@ -34,8 +34,8 @@ By default, the live worker imports these sibling checkouts directly. For differ
 - Start on **Nature reproduction**. Explain the two data qubits, the link, and the two teleported CZ operations.
 - The initial chart is the **saved manuscript reference**, not a newly computed result. It contains rounded percentages from `3-grovers.tex` (2,000 shots per marked state).
 - Run **Noiseless** at 25 shots per state. Switch Results to **Live runs** to see the end-to-end baseline.
-- Run **Lumped** at the manuscript defaults (Bell 0.9689, CZ 0.862). Compare the completed runs. Increase shots for a more stable estimate, or improve Bell fidelity to explore its effect.
-- In **Detailed**, Bell fidelity changes the raw-entanglement term; the remaining Table 1 terms, local-gate infidelity 0.0001, and final-readout infidelity 0.005 stay fixed. CZ fidelity is unused in this model. Noiseless ignores both fidelity sliders.
+- Run **Detailed** at the manuscript default Bell fidelity of 0.9689. Compare with the noiseless control. Increase shots for a more stable estimate, or improve Bell fidelity to explore its effect.
+- In **Detailed**, Bell fidelity changes the raw-entanglement term; the remaining Table 1 terms, local-gate infidelity 0.0001, and final-readout infidelity 0.005 stay fixed. Noiseless ignores the Bell fidelity slider.
 - Switch to **Networks & compilers**. Saved network results hold the FGP compiler fixed; saved compiler results hold the two-node network fixed. These are different workloads, not a joint factorial experiment.
 - For a live comparison, keep the workload and seed fixed and change one network or compiler setting. Choose Star, Grid, or Caveman, matching the paper's topology families. Two-node layouts are the same physical graph; choose four modules to compare distinct edge structures. The small live Caveman consists of two intact cliques joined by one bridge (four modules give a four-node path). The saved ten-node Caveman retains the original experiment's NetworkX connected-caveman construction. All four-node layouts currently have equal capacity per node.
 
@@ -52,7 +52,7 @@ By default, the live worker imports these sibling checkouts directly. For differ
 
 ## Sources and exports
 
-- `data/nature_reference.json`: rounded Section 3 simulation results transcribed from the local manuscript, snapshot 2026-10-28. The experimental average is quoted by that section.
+- `data/nature_reference.json`: rounded Section 3 simulation results transcribed from the local manuscript, snapshot 2026-10-29. The experimental average is quoted by that section.
 - `data/topo_exec.json`, `data/compiler_comparison.json`: unchanged snapshots of the matching files under the sibling `dqc-experiments/dqc_experiments/results/`, taken 2026-10-28. Original metadata is preserved. In particular, the random compiler row is an average over placements; its shot metadata should be interpreted using the originating experiment rather than as a single binomial sample.
 - Live execution uses `paper_replication/grover_2node_pipeline.run_single` and `sequence.dqc.runtime.run`. It does not modify either source project.
 - Download buttons export settings alongside results. Live run folders contain configuration, progress, result/error JSON, and worker logs.
