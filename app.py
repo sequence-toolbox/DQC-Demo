@@ -65,7 +65,7 @@ def nature_page():
              "Nature 638, 383–388 (2025).")
     left, right = st.columns([1, 1.6], gap="large")
     with left:
-        st.subheader("The quantum network")
+        st.subheader("The Quantum Network")
         st.plotly_chart(charts.network(), width="stretch", key="nature_network")
         model = st.selectbox("Noise model", ["Detailed", "Noiseless"])
         with st.form("nature_controls"):
@@ -91,7 +91,7 @@ def nature_page():
                         "local_gate_error": local_error, "readout_error": readout_error, "shots": shots, "seed": seed})
                 st.rerun()
     with right:
-        st.subheader("From circuit to experiment")
+        st.subheader("The Grover's Search Circuit")
         st.plotly_chart(charts.circuit(), width="stretch", key="nature_circuit")
         reference = load_data("nature_reference")
         history = [r for r in st.session_state.get("nature_history", []) if r["model"] in ("Detailed", "Noiseless")]
@@ -239,7 +239,7 @@ with st.sidebar:
     st.caption("Interactive simulation")
     page = st.radio("Explore", ["Nature reproduction", "Networks & compilers"], label_visibility="collapsed")
     st.divider()
-    st.write("**The question**")
+    st.write("**The Question**")
     st.write("How does quantum network and compilation jointly shape distributed quantum computation?")
 
 monitor()

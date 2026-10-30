@@ -103,7 +103,7 @@ def network(kind="Two nodes", modules=2, edges=None, capacity=1, capacities=None
                                hovertext=f"{labels[node]} · data qubit slot {slot + 1}/{count}",
                                name="data_qubit")
     if modules == 2:
-        fig.add_annotation(x=0, y=0.12, text="Photonic link · heralded entanglement", showarrow=False)
+        fig.add_annotation(x=0, y=0.12, text="Heralded entanglement generation", showarrow=False)
     fig.update_xaxes(visible=False, range=[-1.5, 1.5])
     fig.update_yaxes(visible=False, range=[-1.4, 1.4])
     if kind == "Star" and modules > 2:
