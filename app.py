@@ -1,6 +1,5 @@
 """SC26 local interactive demo. Run with: streamlit run app.py."""
 import json
-import math
 from pathlib import Path
 
 import streamlit as st
@@ -131,8 +130,8 @@ def nature_page():
 
 def saved_exploration():
     st.subheader("Explore the manuscript results")
-    mode = st.radio("Hold the workload fixed and compare", ["Networks", "Compilers"], horizontal=True)
-    data = load_data("topo_exec" if mode == "Networks" else "compiler_comparison")
+    mode = st.radio("Hold the workload fixed and compare", ["Networks", "Compilers", "Capacity"], horizontal=True)
+    data = load_data({"Networks": "topo_exec", "Compilers": "compiler_comparison", "Capacity": "capacity_exec"}[mode])
     st.caption("SAVED SIMULATION RESULTS · snapshot from dqc-experiments · changing the selection does not run a simulation")
     if mode == "Networks":
         st.write("6 search qubits + 4 ancillas · 10 nodes · one data slot per node · FGP compiler · z = 0.95")
@@ -148,6 +147,23 @@ def saved_exploration():
         columns[1].metric("Execution time", f"{row['sim_ms']:.2f} ms")
         columns[2].metric("Success", f"{100 * row['success']:.1f}%")
         st.info("All three networks execute 588 remote gates. Routes and hop counts change the communication overhead and success probability.")
+    elif mode == "Capacity":
+        st.write("7 search qubits + 5 ancillas · fixed 4-node line · 12 total data slots · FGP, low move margin · z = 0.95 · 1,000 shots")
+        left, right = st.columns([1, 1.5])
+        with left:
+            for row in data["rows"]:
+                st.write(f"**{row['key'].title()}** · {row['caps']}")
+                st.plotly_chart(charts.network("Line", 4, capacities=row["caps"]).update_layout(height=180), width="stretch", key=f"capacity_{row['key']}")
+        with right:
+            figure = charts.comparison(data["rows"], "sim_ms", "Simulated execution time (ms)")
+            figure.update_traces(text=[f"{100 * row['success']:.1f}% success" for row in data["rows"]], textposition="outside", cliponaxis=False)
+            figure.update_yaxes(range=[0, max(row["sim_ms"] for row in data["rows"]) * 1.2])
+            st.plotly_chart(figure, width="stretch", key="capacity_times")
+            st.dataframe([{"Distribution": row["key"], "Data slots": str(row["caps"]), "Remote gates": row["gates"],
+                           "Qubit moves": row["moves"], "Time (ms)": row["sim_ms"], "Success (%)": round(100 * row["success"], 1)}
+                          for row in data["rows"]], hide_index=True, width="stretch")
+            st.info("The topology and total capacity stay fixed. Concentrating capacity lets the compiler co-locate interacting qubits, changing the remote-gate and qubit-move mix.")
+            st.caption("Red circles show data slots. Execution times come from noiseless runs; success rates use 1,000 noisy shots at z = 0.95. These are saved Figure 6(b) results.")
     else:
         st.write("4 search qubits + 2 ancillas · 2 nodes · three data slots per node · same network · z = 0.95")
         labels = {r["key"]: r["label"].replace("\n", " ") for r in data["rows"]}
@@ -168,16 +184,24 @@ def live_exploration():
             paper = st.checkbox("Use paper topology setup", value=False)
             suffix = "paper" if paper else "custom"
             qubits = st.selectbox("Search qubits", [3, 4, 5, 6], index=3 if paper else 1, disabled=paper, key=f"qubits_{suffix}")
-            modules = st.selectbox("Quantum nodes", [2, 4, 6, 8, 10], index=4 if paper else 0, disabled=paper, key=f"nodes_{suffix}")
-            topology = st.selectbox("Network topology", ["Star", "Grid", "Caveman"])
+            st.caption(f"Total qubits: {2 * qubits - 2} ({qubits} search + {qubits - 2} ancillas)")
+            node_options = [count for count in range(2, 2 * qubits - 1) if (2 * qubits - 2) % count == 0]
+            node_key = f"nodes_{suffix}"
+            if node_key in st.session_state and st.session_state[node_key] not in node_options:
+                st.session_state[node_key] = node_options[-1]
+            modules = st.selectbox("Quantum nodes", node_options, index=len(node_options) - 1 if paper else 0, disabled=paper, key=node_key)
+            topology_options = ["Star", "Grid", "Caveman"] if modules % 2 == 0 else ["Star", "Grid"]
+            topology = st.selectbox("Network topology", topology_options)
             compiler = st.selectbox("Compiler", ["QAP", "Random", "FGP · default", "FGP · low margin"], index=2 if paper else 0, disabled=paper, key=f"compiler_{suffix}")
             link = st.slider("Fiber length parameter (km)", 0.01, 20.0, 5.0, 0.01, format="%.2f", disabled=paper, key=f"link_{suffix}")
-            efficiency = st.slider("Memory efficiency", 0.5, 1.0, 0.9, 0.05, disabled=paper, key=f"efficiency_{suffix}")
-            noise = st.checkbox("Include hardware noise", value=True, disabled=paper, key=f"noise_{suffix}")
-            z = st.select_slider("Hardware quality (z)", options=[0.00, 0.25, 0.50, 0.65, 0.80, 0.90, 0.95, 1.00], value=0.95, format_func=lambda value: f"{value:.2f}", disabled=paper, key=f"z_{suffix}")
+            efficiency = st.slider("Quantum Memory efficiency", 0.5, 1.0, 0.9, 0.05, disabled=paper, key=f"efficiency_{suffix}")
+            noise_column, quality_column = st.columns(2)
+            noise = noise_column.checkbox("Include hardware noise", value=True, disabled=paper, key=f"noise_{suffix}")
+            z = quality_column.select_slider("Hardware quality (z)", options=[0.00, 0.25, 0.50, 0.65, 0.80, 0.90, 0.95, 1.00], value=0.95, format_func=lambda value: f"{value:.2f}", disabled=paper or not noise, key=f"z_{suffix}")
             st.caption("Higher z improves hardware quality. This setting applies when hardware noise is enabled.")
-            shots = st.slider("Simulation shots", 1, 1000, 1000 if paper else 5, key=f"shots_{suffix}")
-            seed = st.number_input("Random seed", min_value=0, max_value=1000000, value=0 if paper else 1, key=f"explore_seed_{suffix}")
+            shots_column, seed_column = st.columns(2)
+            shots = shots_column.select_slider("Simulation shots", options=[1, *range(5, 251, 5)], value=250 if paper else 5, key=f"shots_{suffix}")
+            seed = seed_column.number_input("Random seed", min_value=0, max_value=1000000, value=0 if paper else 1, key=f"explore_seed_{suffix}")
             if paper:
                 st.caption("6 search qubits + 4 ancillas · 10 nodes · 1 data slot per node · FGP · 8 communication slots · z = 0.95. Reduce shots for a quick preview; saved manuscript results show the reported comparison.")
             if st.button("Compile and simulate", type="primary", disabled="job" in st.session_state):
@@ -187,7 +211,7 @@ def live_exploration():
         st.caption("Small workloads keep live runs practical. Capacity is balanced automatically to hold the circuit and its ancillas. The fiber parameter is passed directly to the engine’s link_km setting.")
     with right:
         st.caption(f"SELECTED NETWORK · {topology} · {modules} nodes")
-        st.plotly_chart(charts.network(topology, modules, capacity=math.ceil((2 * qubits - 2) / modules)), width="stretch", key="explore_preview")
+        st.plotly_chart(charts.network(topology, modules, capacity=(2 * qubits - 2) // modules), width="stretch", key="explore_preview")
         history = st.session_state.get("exploration_history", [])
         if not history:
             st.info("Choose a network and compiler, then run. For a controlled comparison, change one setting at a time and keep the seed fixed.")
@@ -195,12 +219,11 @@ def live_exploration():
         result = history[-1]
         config = result["config"]
         st.caption(f"LATEST COMPLETED RUN · {config['topology']} · {config['compiler']} · {result['total_shots']} shots")
-        columns = st.columns(3)
-        columns[0].metric("Execution time · mean", f"{result['sim_ms']:.2f} ms")
-        columns[1].metric("Remote gates", result["gates"])
-        columns[2].metric("Qubit moves", result["moves"])
-        low, high = charts.interval(result["hits"], result["total_shots"])
-        st.write(f"Success: **{result['success']:.0%}** · 95% Wilson interval: {low:.0%}–{high:.0%}")
+        columns = st.columns(4)
+        columns[0].metric("Success Probability", f"{result['success']:.1%}")
+        columns[1].metric("Execution time", f"{result['sim_ms']:.1f} ms")
+        columns[2].metric("Remote gates", result["gates"])
+        columns[3].metric("Qubit moves", result["moves"])
         st.caption("Small shot counts are for interaction; use the saved 1,000-shot datasets for more precise success comparisons. Simulated execution time differs from laptop wall time.")
         st.dataframe([{"Run": i + 1, "Network": r["config"]["topology"], "Compiler": r["config"]["compiler"],
                        "Fiber (km)": r["config"]["link_km"], "Memory efficiency": r["config"]["efficiency"],
@@ -219,8 +242,6 @@ with st.sidebar:
     st.divider()
     st.write("**The question**")
     st.write("How does a quantum network shape distributed quantum computation?")
-    if st.session_state.get("nature_history") or st.session_state.get("exploration_history"):
-        st.caption("Completed live runs are available in each scenario and saved under runs/.")
 
 monitor()
 if error := st.session_state.get("job_error"):

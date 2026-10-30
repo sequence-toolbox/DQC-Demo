@@ -69,8 +69,12 @@ def exploration(config, progress):
     from demo.grover.noise_z import ZTABLE, apply_z
 
     n, modules, shots = int(config["qubits"]), int(config["modules"]), int(config["shots"])
-    if n not in (3, 4, 5, 6) or modules not in (2, 4, 6, 8, 10) or not 1 <= shots <= 1000:
+    if n not in (3, 4, 5, 6) or modules not in range(2, 11) or not 1 <= shots <= 250:
         raise ValueError("Invalid live exploration size")
+    if modules > 2 * n - 2:
+        raise ValueError("Quantum nodes cannot exceed the total number of circuit qubits")
+    if (2 * n - 2) % modules:
+        raise ValueError("Total circuit qubits must divide evenly among quantum nodes")
     z = config.get("z", 0.95)
     if z not in ZTABLE:
         raise ValueError("Hardware quality z must be one of the supported ZTABLE values")
@@ -78,12 +82,12 @@ def exploration(config, progress):
         raise ValueError("Fiber length must be between 0.01 and 20 km")
     graph = topology_graph(config["topology"], modules)
     circuit = GroverCircuitBuilder(n, [2 ** n - 1], math.floor(math.pi / 4 * math.sqrt(2 ** n))).build_grover_circuit()
-    capacity = math.ceil(circuit.size / modules)
+    capacity = circuit.size // modules
 
     def make_topology():
         comm = 8 if config.get("paper_setup") else 16
         builders = {"Star": lambda: make_star(modules, capacity, comm_memo=comm),
-                    "Grid": lambda: make_grid(2, modules // 2, capacity, comm_memo=comm),
+                    "Grid": lambda: make_grid(2 if modules % 2 == 0 else 1, modules // 2 if modules % 2 == 0 else modules, capacity, comm_memo=comm),
                     "Caveman": lambda: make_caveman(2, modules // 2, capacity, comm_memo=comm)}
         topology = builders[config["topology"]]()
         topology.link_km = config["link_km"]

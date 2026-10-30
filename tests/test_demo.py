@@ -23,6 +23,34 @@ def radio(app, label):
 
 
 class AppTests(unittest.TestCase):
+    def test_topology_draws_qubit_slots(self):
+        from demo.charts import network
+        for kind, nodes, capacity in (("Star", 2, 3), ("Grid", 4, 2), ("Caveman", 10, 1), ("Two nodes", 2, 1)):
+            figure = network(kind, nodes, capacity=capacity)
+            dots = [a for a in figure.layout.annotations if a.name == "data_qubit"]
+            self.assertEqual(len(dots), nodes * capacity)
+            self.assertTrue(all(a.font.color == "#dc2626" for a in dots))
+            for x, y in zip(figure.data[-1].x, figure.data[-1].y):
+                self.assertEqual(sum(a.x == x and a.y == y for a in dots), capacity)
+        for capacities in ([3, 3, 3, 3], [6, 3, 2, 1], [9, 1, 1, 1]):
+            figure = network("Line", 4, capacities=capacities)
+            dots = [a for a in figure.layout.annotations if a.name == "data_qubit"]
+            self.assertEqual(len(dots), 12)
+            self.assertEqual(len(figure.data) - 1, 3)
+            for i, (x, y) in enumerate(zip(figure.data[-1].x, figure.data[-1].y)):
+                self.assertEqual(sum(a.x == x and a.y == y for a in dots), capacities[i])
+
+    def test_saved_capacity_comparison(self):
+        app = AppTest.from_file(APP, default_timeout=20).run()
+        radio(app, "Explore").set_value("Networks & compilers").run()
+        radio(app, "Hold the workload fixed and compare").set_value("Capacity").run()
+        self.assertFalse(app.exception)
+        table = app.dataframe[0].value
+        self.assertEqual(table["Distribution"].tolist(), ["balanced", "mid", "skewed"])
+        self.assertEqual(table["Time (ms)"].tolist(), [410.72, 261.96, 165.52])
+        self.assertEqual(table["Success (%)"].tolist(), [27., 49.7, 52.6])
+        self.assertFalse(any(button.label == "Compile and simulate" for button in app.button))
+
     def test_star_has_centered_hub_and_spokes(self):
         from demo.charts import network
         figure = network("Star", 4)
@@ -43,7 +71,7 @@ class AppTests(unittest.TestCase):
         self.assertEqual(next(w for w in app.selectbox if w.label == "Search qubits").value, 6)
         self.assertEqual(next(w for w in app.selectbox if w.label == "Quantum nodes").value, 10)
         self.assertEqual(next(w for w in app.selectbox if w.label == "Compiler").value, "FGP · default")
-        self.assertEqual(next(w for w in app.slider if w.label == "Simulation shots").value, 1000)
+        self.assertEqual(next(w for w in app.select_slider if w.label == "Simulation shots").value, 250)
 
     def test_ten_node_graphs_match_engine(self):
         from demo.simulation import connect_sources
@@ -100,19 +128,20 @@ class AppTests(unittest.TestCase):
         self.assertTrue(any(b.label == "Compile and simulate" for b in app.button))
         self.assertEqual(next(w for w in app.selectbox if w.label == "Search qubits").options, ["3", "4", "5", "6"])
         self.assertEqual(next(w for w in app.selectbox if w.label == "Network topology").options, ["Star", "Grid", "Caveman"])
-        next(w for w in app.selectbox if w.label == "Quantum nodes").set_value(4).run()
-        self.assertTrue(any("SELECTED NETWORK · Star · 4 nodes" in w.value for w in app.caption))
+        self.assertEqual(next(w for w in app.selectbox if w.label == "Quantum nodes").options, ["2", "3", "6"])
+        next(w for w in app.selectbox if w.label == "Quantum nodes").set_value(3).run()
+        self.assertTrue(any("SELECTED NETWORK · Star · 3 nodes" in w.value for w in app.caption))
         fiber = next(w for w in app.slider if w.label == "Fiber length parameter (km)")
         self.assertEqual((fiber.proto.min, fiber.proto.max), (0.01, 20.0))
         fiber.set_value(20.0)
-        next(w for w in app.slider if w.label == "Simulation shots").set_value(1000)
+        next(w for w in app.select_slider if w.label == "Simulation shots").set_value(250)
         quality = next(w for w in app.select_slider if w.label == "Hardware quality (z)")
         self.assertEqual(quality.options, ["0.00", "0.25", "0.50", "0.65", "0.80", "0.90", "0.95", "1.00"])
         quality.set_value(0.25)
         with patch("demo.jobs.start", return_value={"config": {}}) as start, patch("demo.jobs.poll", return_value=("running", {"value": 0, "message": "Testing submission"})):
             next(b for b in app.button if b.label == "Compile and simulate").click().run()
         submitted = start.call_args.args[0]
-        self.assertEqual((submitted["link_km"], submitted["shots"], submitted["z"]), (20.0, 1000, 0.25))
+        self.assertEqual((submitted["link_km"], submitted["shots"], submitted["z"]), (20.0, 250, 0.25))
         self.assertFalse(app.exception)
 
     def test_live_history_renders(self):

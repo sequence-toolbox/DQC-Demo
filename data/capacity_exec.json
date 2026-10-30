@@ -1,0 +1,61 @@
+{
+  "experiment": "capacity_exec",
+  "n": 7,
+  "qubits": 12,
+  "iters": 8,
+  "z": 0.95,
+  "shots": 1000,
+  "rows": [
+    {
+      "label": "balanced\n[3,3,3,3]",
+      "key": "balanced",
+      "caps": [
+        3,
+        3,
+        3,
+        3
+      ],
+      "gates": 17,
+      "moves": 352,
+      "sim_ms": 410.72,
+      "success": 0.27,
+      "successes": 270,
+      "shots": 1000,
+      "noiseless_ok": true
+    },
+    {
+      "label": "mid\n[6,3,2,1]",
+      "key": "mid",
+      "caps": [
+        6,
+        3,
+        2,
+        1
+      ],
+      "gates": 143,
+      "moves": 132,
+      "sim_ms": 261.96,
+      "success": 0.497,
+      "successes": 497,
+      "shots": 1000,
+      "noiseless_ok": true
+    },
+    {
+      "label": "skewed\n[9,1,1,1]",
+      "key": "skewed",
+      "caps": [
+        9,
+        1,
+        1,
+        1
+      ],
+      "gates": 17,
+      "moves": 128,
+      "sim_ms": 165.52,
+      "success": 0.526,
+      "successes": 526,
+      "shots": 1000,
+      "noiseless_ok": true
+    }
+  ]
+}
