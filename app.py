@@ -236,11 +236,11 @@ def live_exploration():
 
 with st.sidebar:
     st.markdown("### SeQUeNCe.DQC")
-    st.caption("SC26 · Interactive simulation")
+    st.caption("Interactive simulation")
     page = st.radio("Explore", ["Nature reproduction", "Networks & compilers"], label_visibility="collapsed")
     st.divider()
     st.write("**The question**")
-    st.write("How does a quantum network shape distributed quantum computation?")
+    st.write("How does quantum network and compilation jointly shape distributed quantum computation?")
 
 monitor()
 if error := st.session_state.get("job_error"):
