@@ -49,8 +49,8 @@ def nature(config, progress):
 
 
 def exploration(config, progress):
-    import networkx as nx
-    from sequence.dqc.architecture import DQCArchitecture
+    from demo.topologies import topology_graph
+    from sequence.dqc.architecture import make_star, make_grid, make_caveman
     from sequence.dqc.compilers import build_compiler
     from sequence.dqc.compilers.fgp import FGPCompiler
     from sequence.dqc.runtime import run
@@ -58,22 +58,23 @@ def exploration(config, progress):
     from demo.grover.noise_z import ZTABLE, apply_z
 
     n, modules, shots = int(config["qubits"]), int(config["modules"]), int(config["shots"])
-    if n not in (3, 4) or modules not in (2, 4) or not 1 <= shots <= 1000:
+    if n not in (3, 4, 5, 6) or modules not in (2, 4, 6, 8, 10) or not 1 <= shots <= 1000:
         raise ValueError("Invalid live exploration size")
     z = config.get("z", 0.95)
     if z not in ZTABLE:
         raise ValueError("Hardware quality z must be one of the supported ZTABLE values")
     if not 0.01 <= config["link_km"] <= 20:
         raise ValueError("Fiber length must be between 0.01 and 20 km")
-    caveman = nx.caveman_graph(2, modules // 2)
-    caveman.add_edge(modules // 2 - 1, modules // 2)
-    graphs = {"Star": nx.star_graph(modules - 1), "Caveman": caveman,
-              "Grid": nx.convert_node_labels_to_integers(nx.grid_2d_graph(2, modules // 2))}
-    circuit = GroverCircuitBuilder(n, [2 ** n - 1], round(math.pi / 4 * math.sqrt(2 ** n))).build_grover_circuit()
+    graph = topology_graph(config["topology"], modules)
+    circuit = GroverCircuitBuilder(n, [2 ** n - 1], math.floor(math.pi / 4 * math.sqrt(2 ** n))).build_grover_circuit()
     capacity = math.ceil(circuit.size / modules)
 
     def make_topology():
-        topology = DQCArchitecture.from_nx_graph("demo", graphs[config["topology"]], capacity, comm_memo=16)
+        comm = 8 if config.get("paper_setup") else 16
+        builders = {"Star": lambda: make_star(modules, capacity, comm_memo=comm),
+                    "Grid": lambda: make_grid(2, modules // 2, capacity, comm_memo=comm),
+                    "Caveman": lambda: make_caveman(2, modules // 2, capacity, comm_memo=comm)}
+        topology = builders[config["topology"]]()
         topology.link_km = config["link_km"]
         topology.mem_efficiency = config["efficiency"]
         if config["noise"]:
@@ -100,7 +101,7 @@ def exploration(config, progress):
             "sim_ms": sum(r["sim_ms"] for r in results) / shots,
             "gates": results[0]["gates"], "moves": results[0]["moves"],
             "hops": results[0]["hops"], "total_qubits": circuit.size, "capacity": capacity,
-            "shots": results, "edges": list(graphs[config["topology"]].edges())}
+            "shots": results, "edges": list(graph.edges())}
 
 
 def simulate(config, progress):

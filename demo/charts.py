@@ -3,6 +3,7 @@ import math
 
 import networkx as nx
 import plotly.graph_objects as go
+from demo.topologies import topology_graph
 
 COLORS = ["#0d9488", "#4878d0", "#c58a21", "#995ac6"]
 
@@ -28,35 +29,45 @@ def network(kind="Two nodes", modules=2, edges=None, capacity=1):
         graph = nx.Graph()
         graph.add_nodes_from(range(modules))
         graph.add_edges_from(edges)
-    elif kind == "Star":
-        graph = nx.star_graph(modules - 1)
-    elif kind == "Grid":
-        graph = nx.convert_node_labels_to_integers(nx.grid_2d_graph(2, modules // 2))
-    elif kind == "Caveman":
-        if modules <= 4:
-            graph = nx.caveman_graph(2, modules // 2)
-            graph.add_edge(modules // 2 - 1, modules // 2)
-        else:
-            graph = nx.connected_caveman_graph(2, modules // 2)
+    elif kind in ("Star", "Grid", "Caveman"):
+        graph = topology_graph(kind, modules)
     else:
         graph = nx.path_graph(2) if modules == 2 else nx.cycle_graph(modules)
     positions = nx.spring_layout(graph, seed=7)
     if modules == 2:
         positions = {0: (-1, 0), 1: (1, 0)}
+    elif kind == "Star":
+        positions = {0: (0.0, 0.0)}
+        positions.update({i: (math.cos(math.pi / 2 + 2 * math.pi * (i - 1) / (modules - 1)),
+                              math.sin(math.pi / 2 + 2 * math.pi * (i - 1) / (modules - 1))) for i in range(1, modules)})
+    elif kind == "Grid":
+        columns = modules // 2
+        positions = {i: (-1 + 2 * (i % columns) / max(1, columns - 1), 0.4 - 0.8 * (i // columns)) for i in graph.nodes()}
+    elif kind == "Caveman":
+        size = modules // 2
+        angles = {i: 2 * math.pi * (i - size + 1) / size if i < size else math.pi + 2 * math.pi * (i - size) / size for i in graph.nodes()}
+        positions = {i: ((-0.8 if i < size else 0.8) + 0.45 * math.cos(angles[i]),
+                         0.6 * math.sin(angles[i])) for i in graph.nodes()}
     fig = go.Figure()
     for a, b in graph.edges():
         fig.add_trace(go.Scatter(x=[positions[a][0], positions[b][0]], y=[positions[a][1], positions[b][1]],
                                  mode="lines", line={"color": "#48748d", "width": 3}, hoverinfo="skip", showlegend=False))
     labels = ["Alice", "Bob"] if modules == 2 else [f"QPU {i + 1}" for i in graph.nodes()]
+    if kind == "Star":
+        labels[0] += " · hub"
     fig.add_trace(go.Scatter(x=[positions[i][0] for i in graph.nodes()], y=[positions[i][1] for i in graph.nodes()],
                              mode="markers+text", text=labels, textposition="bottom center", showlegend=False,
                              customdata=[capacity] * modules,
                              hovertemplate="%{text}<br>Data capacity: %{customdata}<extra></extra>",
-                             marker={"size": 44 if modules == 2 else 28, "color": COLORS[0], "line": {"color": "#a7fff2", "width": 2}}))
+                             marker={"size": 44 if modules == 2 else 28,
+                                     "color": [COLORS[1] if kind == "Star" and i == 0 else COLORS[0] for i in graph.nodes()],
+                                     "line": {"color": "#a7fff2", "width": 2}}))
     if modules == 2:
         fig.add_annotation(x=0, y=0.12, text="Photonic link · heralded entanglement", showarrow=False)
     fig.update_xaxes(visible=False, range=[-1.5, 1.5])
     fig.update_yaxes(visible=False, range=[-1.4, 1.4])
+    if kind == "Star" and modules > 2:
+        fig.update_yaxes(scaleanchor="x", scaleratio=1)
     return style(fig, 290)
 
 

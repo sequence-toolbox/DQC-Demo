@@ -20,6 +20,46 @@ def radio(app, label):
 
 
 class AppTests(unittest.TestCase):
+    def test_star_has_centered_hub_and_spokes(self):
+        from demo.charts import network
+        figure = network("Star", 4)
+        self.assertEqual(len(figure.data) - 1, 3)
+        nodes = figure.data[-1]
+        self.assertEqual((nodes.x[0], nodes.y[0]), (0., 0.))
+        self.assertIn("hub", nodes.text[0])
+        for edge in figure.data[:-1]:
+            self.assertEqual((edge.x[0], edge.y[0]), (0., 0.))
+        self.assertEqual(len(network("Star", 2).data[-1].x), 2)
+
+    def test_paper_topology_preset(self):
+        app = AppTest.from_file(APP, default_timeout=20).run()
+        radio(app, "Explore").set_value("Networks & compilers").run()
+        radio(app, "Experience").set_value("Live simulation").run()
+        next(w for w in app.checkbox if w.label == "Use paper topology setup").check().run()
+        self.assertFalse(app.exception)
+        self.assertEqual(next(w for w in app.selectbox if w.label == "Search qubits").value, 6)
+        self.assertEqual(next(w for w in app.selectbox if w.label == "Quantum nodes").value, 10)
+        self.assertEqual(next(w for w in app.selectbox if w.label == "Compiler").value, "FGP · default")
+        self.assertEqual(next(w for w in app.slider if w.label == "Simulation shots").value, 1000)
+
+    def test_ten_node_graphs_match_engine(self):
+        from demo.simulation import connect_sources
+        connect_sources()
+        from demo.topologies import topology_graph
+        from sequence.dqc.architecture import make_star, make_grid, make_caveman
+        import networkx as nx
+        for kind, arch in (("Star", make_star(10, 1)), ("Grid", make_grid(2, 5, 1)), ("Caveman", make_caveman(2, 5, 1))):
+            graph = topology_graph(kind, 10)
+            self.assertTrue(nx.is_connected(graph))
+            self.assertEqual(graph.number_of_nodes(), 10)
+            actual = {frozenset((arch.node_names[a], arch.node_names[b])) for a, b in graph.edges()}
+            self.assertEqual(actual, {frozenset(edge) for edge in arch.edges})
+            if kind == "Caveman":
+                self.assertEqual(graph.number_of_edges(), 21)
+                self.assertEqual(graph.subgraph(range(5)).number_of_edges(), 10)
+                self.assertEqual(graph.subgraph(range(5, 10)).number_of_edges(), 10)
+                self.assertEqual([(a, b) for a, b in graph.edges() if (a < 5) != (b < 5)], [(4, 5)])
+
     def test_noiseless_hides_and_zeroes_errors(self):
         app = AppTest.from_file(APP, default_timeout=20).run()
         next(w for w in app.selectbox if w.label == "Noise model").set_value("Noiseless").run()
@@ -55,7 +95,10 @@ class AppTests(unittest.TestCase):
         radio(app, "Experience").set_value("Live simulation").run()
         self.assertFalse(app.exception)
         self.assertTrue(any(b.label == "Compile and simulate" for b in app.button))
+        self.assertEqual(next(w for w in app.selectbox if w.label == "Search qubits").options, ["3", "4", "5", "6"])
         self.assertEqual(next(w for w in app.selectbox if w.label == "Network topology").options, ["Star", "Grid", "Caveman"])
+        next(w for w in app.selectbox if w.label == "Quantum nodes").set_value(4).run()
+        self.assertTrue(any("SELECTED NETWORK · Star · 4 nodes" in w.value for w in app.caption))
         fiber = next(w for w in app.slider if w.label == "Fiber length parameter (km)")
         self.assertEqual((fiber.proto.min, fiber.proto.max), (0.01, 20.0))
         fiber.set_value(20.0)

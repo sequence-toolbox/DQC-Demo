@@ -10,6 +10,10 @@ ROOT = Path(__file__).resolve().parents[1]
 TIMEOUT = 600
 
 
+def timeout_seconds(config):
+    return 7200 if config.get("paper_setup") else TIMEOUT
+
+
 def start(config):
     directory = ROOT / "runs" / uuid.uuid4().hex
     directory.mkdir(parents=True)
@@ -36,9 +40,10 @@ def poll(job):
         if (directory / filename).exists():
             job["process"].wait(timeout=3)
             return status, json.loads((directory / filename).read_text())
-    if time.monotonic() - job["started"] > TIMEOUT:
+    limit = timeout_seconds(job["config"])
+    if time.monotonic() - job["started"] > limit:
         stop(job)
-        return "error", {"message": "Run exceeded 10 minutes. Try fewer shots or a smaller circuit."}
+        return "error", {"message": f"Run exceeded {limit // 60} minutes. Try fewer shots or a smaller circuit."}
     if job["process"].poll() is not None:
         return "error", {"message": "Simulation worker stopped unexpectedly. See worker.log in the run folder."}
     path = directory / "progress.json"

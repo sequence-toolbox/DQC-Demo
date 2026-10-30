@@ -7,7 +7,7 @@ import threading
 import traceback
 
 from demo.simulation import simulate
-from demo.jobs import TIMEOUT
+from demo.jobs import timeout_seconds
 
 
 def write_json(path, value):
@@ -21,10 +21,10 @@ if __name__ == "__main__":
     config = json.loads((directory / "config.json").read_text())
 
     def timeout():
-        write_json(directory / "error.json", {"message": "Run exceeded 10 minutes. Try fewer shots or a smaller circuit."})
+        write_json(directory / "error.json", {"message": f"Run exceeded {timeout_seconds(config) // 60} minutes. Try fewer shots or a smaller circuit."})
         os._exit(124)
 
-    timer = threading.Timer(TIMEOUT, timeout)
+    timer = threading.Timer(timeout_seconds(config), timeout)
     timer.daemon = True
     timer.start()
     try:

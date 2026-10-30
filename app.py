@@ -37,7 +37,7 @@ def monitor():
     status, payload = jobs.poll(job)
     if status == "running":
         st.progress(payload["value"], text=payload["message"])
-        st.caption("Live simulation · runs continue while you explore · 10-minute limit")
+        st.caption(f"Live simulation · runs continue while you explore · {120 if job['config'].get('paper_setup') else 10}-minute limit")
         if st.button("Cancel simulation", key="cancel"):
             jobs.stop(job)
             del st.session_state["job"]
@@ -163,33 +163,37 @@ def saved_exploration():
 def live_exploration():
     left, right = st.columns([1, 1.6], gap="large")
     with left:
-        with st.form("explore_controls"):
-            qubits = st.selectbox("Search qubits", [3, 4], index=1)
-            modules = st.selectbox("Quantum nodes", [2, 4])
+        with st.container(border=True):
+            paper = st.checkbox("Use paper topology setup", value=False)
+            suffix = "paper" if paper else "custom"
+            qubits = st.selectbox("Search qubits", [3, 4, 5, 6], index=3 if paper else 1, disabled=paper, key=f"qubits_{suffix}")
+            modules = st.selectbox("Quantum nodes", [2, 4, 6, 8, 10], index=4 if paper else 0, disabled=paper, key=f"nodes_{suffix}")
             topology = st.selectbox("Network topology", ["Star", "Grid", "Caveman"])
-            compiler = st.selectbox("Compiler", ["QAP", "Random", "FGP · default", "FGP · low margin"])
-            link = st.slider("Fiber length parameter (km)", 0.01, 20.0, 5.0, 0.01, format="%.2f")
-            efficiency = st.slider("Memory efficiency", 0.5, 1.0, 0.9, 0.05)
-            noise = st.checkbox("Include hardware noise", value=True)
-            z = st.select_slider("Hardware quality (z)", options=[0.00, 0.25, 0.50, 0.65, 0.80, 0.90, 0.95, 1.00], value=0.95, format_func=lambda value: f"{value:.2f}")
+            compiler = st.selectbox("Compiler", ["QAP", "Random", "FGP · default", "FGP · low margin"], index=2 if paper else 0, disabled=paper, key=f"compiler_{suffix}")
+            link = st.slider("Fiber length parameter (km)", 0.01, 20.0, 5.0, 0.01, format="%.2f", disabled=paper, key=f"link_{suffix}")
+            efficiency = st.slider("Memory efficiency", 0.5, 1.0, 0.9, 0.05, disabled=paper, key=f"efficiency_{suffix}")
+            noise = st.checkbox("Include hardware noise", value=True, disabled=paper, key=f"noise_{suffix}")
+            z = st.select_slider("Hardware quality (z)", options=[0.00, 0.25, 0.50, 0.65, 0.80, 0.90, 0.95, 1.00], value=0.95, format_func=lambda value: f"{value:.2f}", disabled=paper, key=f"z_{suffix}")
             st.caption("Higher z improves hardware quality. This setting applies when hardware noise is enabled.")
-            shots = st.slider("Simulation shots", 1, 1000, 5)
-            seed = st.number_input("Random seed", min_value=0, max_value=1000000, value=1, key="explore_seed")
-            if st.form_submit_button("Compile and simulate", type="primary", disabled="job" in st.session_state):
+            shots = st.slider("Simulation shots", 1, 1000, 1000 if paper else 5, key=f"shots_{suffix}")
+            seed = st.number_input("Random seed", min_value=0, max_value=1000000, value=0 if paper else 1, key=f"explore_seed_{suffix}")
+            if paper:
+                st.caption("6 search qubits + 4 ancillas · 10 nodes · 1 data slot per node · FGP · 8 communication slots · z = 0.95. Reduce shots for a quick preview; saved manuscript results show the reported comparison.")
+            if st.button("Compile and simulate", type="primary", disabled="job" in st.session_state):
                 launch({"scenario": "exploration", "qubits": qubits, "modules": modules, "topology": topology,
-                        "compiler": compiler, "link_km": link, "efficiency": efficiency, "noise": noise, "z": z, "shots": shots, "seed": seed})
+                        "compiler": compiler, "link_km": link, "efficiency": efficiency, "noise": noise, "z": z, "shots": shots, "seed": seed, "paper_setup": paper})
                 st.rerun()
         st.caption("Small workloads keep live runs practical. Capacity is balanced automatically to hold the circuit and its ancillas. The fiber parameter is passed directly to the engine’s link_km setting.")
     with right:
+        st.caption(f"SELECTED NETWORK · {topology} · {modules} nodes")
+        st.plotly_chart(charts.network(topology, modules, capacity=math.ceil((2 * qubits - 2) / modules)), width="stretch", key="explore_preview")
         history = st.session_state.get("exploration_history", [])
         if not history:
-            st.plotly_chart(charts.network(topology, modules, capacity=math.ceil((2 * qubits - 2) / modules)), width="stretch", key="explore_preview")
             st.info("Choose a network and compiler, then run. For a controlled comparison, change one setting at a time and keep the seed fixed.")
             return
         result = history[-1]
         config = result["config"]
         st.caption(f"LATEST COMPLETED RUN · {config['topology']} · {config['compiler']} · {result['total_shots']} shots")
-        st.plotly_chart(charts.network(config["topology"], config["modules"], result["edges"], result["capacity"]), width="stretch", key="explore_result")
         columns = st.columns(3)
         columns[0].metric("Execution time · mean", f"{result['sim_ms']:.2f} ms")
         columns[1].metric("Remote gates", result["gates"])
