@@ -84,8 +84,9 @@ def nature_page():
                 local, readout = st.columns(2)
                 local_error = local.number_input("Local H/X error (%)", min_value=0.0, max_value=50.0, value=0.01, step=0.001, format="%.3f") / 100
                 readout_error = readout.number_input("Final readout error (%)", min_value=0.0, max_value=100.0, value=0.5, step=0.01, format="%.3f") / 100
-            shots = st.select_slider("Shots per marked state", options=[100, 250, 500, 1000, 2000], value=100)
-            seed = st.number_input("Random seed", min_value=0, max_value=1000000, value=1, key="nature_seed")
+            shots_column, seed_column = st.columns(2)
+            shots = shots_column.select_slider("Shots per marked state", options=[100, 250, 500, 1000, 2000], value=100)
+            seed = seed_column.number_input("Random seed", min_value=0, max_value=1000000, value=1, key="nature_seed")
             if st.form_submit_button("Run distributed Grover", type="primary", disabled="job" in st.session_state):
                 launch({"scenario": "nature", "model": model, "bell": bell, "budget": budget,
                         "local_gate_error": local_error, "readout_error": readout_error, "shots": shots, "seed": seed})

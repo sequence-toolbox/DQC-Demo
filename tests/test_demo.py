@@ -4,6 +4,9 @@ import unittest
 import subprocess
 import sys
 import textwrap
+import os
+from tempfile import TemporaryDirectory
+from types import SimpleNamespace
 from pathlib import Path
 from unittest.mock import patch
 
@@ -127,6 +130,26 @@ class AppTests(unittest.TestCase):
 
 
 class SimulationTests(unittest.TestCase):
+    def test_engine_source_selection(self):
+        from demo.simulation import connect_sources
+        with TemporaryDirectory() as directory:
+            checkout = Path(directory) / "checkout"
+            (checkout / "sequence" / "dqc").mkdir(parents=True)
+            package = SimpleNamespace(__file__=str(checkout / "sequence" / "__init__.py"))
+            with patch.dict(os.environ, {"SEQUENCE_DQC_ROOT": str(checkout)}), patch.object(sys, "path", list(sys.path)):
+                with patch("demo.simulation.import_module", return_value=package):
+                    paths = connect_sources()
+                self.assertEqual(paths["engine_source"], "local checkout")
+                self.assertEqual(sys.path[0], str(checkout.resolve()))
+            installed = SimpleNamespace(__file__=str(Path(directory) / "site-packages" / "sequence" / "__init__.py"))
+            with patch.dict(os.environ, {"SEQUENCE_DQC_ROOT": str(Path(directory) / "absent")}):
+                with patch("demo.simulation.import_module", return_value=installed):
+                    paths = connect_sources()
+                self.assertEqual(paths["engine_source"], "installed package")
+                with patch("demo.simulation.import_module", side_effect=ModuleNotFoundError("No sequence", name="sequence")):
+                    with self.assertRaisesRegex(RuntimeError, "Install requirements.txt"):
+                        connect_sources()
+
     def test_table_budget_controls_reach_simulation(self):
         from demo.simulation import connect_sources
         connect_sources()

@@ -23,11 +23,14 @@ Use the Python version supported by SeQUeNCe.DQC (this laptop uses Python 3.14):
 
 ```bash
 python -m venv .venv
-.venv/bin/python -m pip install -e ../SeQUeNCe.DQC
 .venv/bin/python -m pip install -r requirements.txt
+# Optional: install your local engine for development instead of the GitHub copy.
+.venv/bin/python -m pip install -e ../SeQUeNCe.DQC
 ```
 
-The live worker uses the sibling SeQUeNCe.DQC engine checkout. For a different location, set `SEQUENCE_DQC_ROOT` to its absolute path before launching. Circuit builders, the Nature simulation adapter, and hardware-noise settings are included under `demo/`; installing or keeping the dqc-experiments repository is not required. Saved results are available without the engine checkout; live runs display an error if the engine or its dependencies are missing.
+The live worker first checks the sibling SeQUeNCe.DQC checkout (or `SEQUENCE_DQC_ROOT` for another local location). If it is absent, the worker uses the installed engine. `requirements.txt` installs that fallback from `https://github.com/ssuresh27-byte/SeQUeNCe.DQC`, branch `master`, including its dependencies. No package installation or network access happens during a simulation. Circuit builders, the Nature simulation adapter, and hardware-noise settings are included under `demo/`; installing or keeping the dqc-experiments repository is not required. Saved results are available without an engine installation.
+
+For Streamlit Community Cloud, deploy with Python 3.12, 3.13, or 3.14 and this repository's `requirements.txt`. The cloud dependency installer fetches the GitHub engine, so no neighboring source checkout is required. Commit and push the dependency and source changes, then reboot/redeploy the cloud app to rebuild its environment. A local checkout remains preferred on your laptop even when the GitHub dependency is installed.
 
 ## Demo walkthrough
 

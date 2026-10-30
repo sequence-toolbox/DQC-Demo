@@ -1,6 +1,7 @@
 """Simulation adapters. Imported only by an isolated worker process."""
 import contextlib
 import io
+from importlib import import_module
 import math
 import os
 from pathlib import Path
@@ -11,16 +12,26 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def connect_sources():
-    """Load the SeQUeNCe engine; experiment adapters live in this repository."""
-    engine = Path(os.environ.get("SEQUENCE_DQC_ROOT", ROOT.parent / "SeQUeNCe.DQC"))
-    if not engine.is_dir():
-        raise FileNotFoundError(f"Source checkout missing: {engine}. See README.md for setup.")
-    if str(engine) not in sys.path:
-        sys.path.insert(0, str(engine))
+    """Prefer a local checkout, otherwise use the engine installed from GitHub."""
     cache = ROOT / "runs" / ".matplotlib"
     cache.mkdir(parents=True, exist_ok=True)
     os.environ.setdefault("MPLCONFIGDIR", str(cache))
-    return {"engine": str(engine), "demo": str(ROOT)}
+    engine = Path(os.environ.get("SEQUENCE_DQC_ROOT", ROOT.parent / "SeQUeNCe.DQC")).expanduser().resolve()
+    local = (engine / "sequence" / "dqc").is_dir()
+    if local:
+        # Move the checkout ahead of any installed copy, including editable installs.
+        sys.path[:] = [str(engine)] + [path for path in sys.path if path != str(engine)]
+    try:
+        package = import_module("sequence")
+        import_module("sequence.dqc.runtime")
+    except ModuleNotFoundError as error:
+        if error.name == "sequence" or (error.name or "").startswith("sequence."):
+            raise RuntimeError("SeQUeNCe.DQC is unavailable. Install requirements.txt to get the GitHub engine, "
+                               "or provide a local checkout using SEQUENCE_DQC_ROOT.") from error
+        raise
+    loaded = Path(package.__file__).resolve().parent
+    return {"engine": str(loaded), "engine_source": "local checkout" if local else "installed package",
+            "demo": str(ROOT)}
 
 
 def nature(config, progress):
