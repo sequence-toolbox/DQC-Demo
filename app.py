@@ -208,7 +208,6 @@ def live_exploration():
                 launch({"scenario": "exploration", "qubits": qubits, "modules": modules, "topology": topology,
                         "compiler": compiler, "link_km": link, "efficiency": efficiency, "noise": noise, "z": z, "shots": shots, "seed": seed, "paper_setup": paper})
                 st.rerun()
-        st.caption("Small workloads keep live runs practical. Capacity is balanced automatically to hold the circuit and its ancillas. The fiber parameter is passed directly to the engine’s link_km setting.")
     with right:
         st.caption(f"SELECTED NETWORK · {topology} · {modules} nodes")
         st.plotly_chart(charts.network(topology, modules, capacity=(2 * qubits - 2) // modules), width="stretch", key="explore_preview")
