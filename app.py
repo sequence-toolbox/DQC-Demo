@@ -254,7 +254,7 @@ if page == "Nature reproduction":
 else:
     st.markdown('<div class="eyebrow">02 / NETWORK & COMPILER EXPLORATION</div>', unsafe_allow_html=True)
     st.title("The network matters. So does the compiler.")
-    st.write("Compare architectures and communication strategies for distributed Grover search.")
+    st.write("Compare various quantum network and compilation strategies for distributed Grover search.")
     mode = st.radio("Experience", ["Saved manuscript results", "Live simulation"], horizontal=True)
     if mode == "Saved manuscript results":
         saved_exploration()
