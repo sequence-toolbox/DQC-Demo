@@ -23,7 +23,7 @@ def interval(hits, shots):
     return max(0, center - half), min(1, center + half)
 
 
-def network(kind="Two modules", modules=2, edges=None, capacity=1):
+def network(kind="Two nodes", modules=2, edges=None, capacity=1):
     if edges is not None:
         graph = nx.Graph()
         graph.add_nodes_from(range(modules))
@@ -75,7 +75,7 @@ def circuit():
     return style(fig, 230)
 
 
-def success_chart(series):
+def success_chart(series, height=390):
     fig = go.Figure()
     for i, (label, rows) in enumerate(series.items()):
         values = [r["success"] * 100 for r in rows]
@@ -91,7 +91,7 @@ def success_chart(series):
     fig.add_hrect(y0=70, y1=72, fillcolor="#c58a21", opacity=0.12, line_width=0)
     fig.add_hline(y=71, line_dash="dash", line_color="#a66b0c", annotation_text="Nature · 71% average")
     fig.update_layout(barmode="group", yaxis_title="Success probability (%)", yaxis_range=[0, 110], xaxis_title="Marked state")
-    return style(fig, 390)
+    return style(fig, height)
 
 
 def comparison(rows, metric, title, key="label"):

@@ -6,15 +6,17 @@ from pathlib import Path
 import streamlit as st
 
 from demo import charts, jobs
+from demo.grover.error_budget import TABLE1_BUDGET, ERROR_LABELS
+from demo.grover.history import history_row
 
 ROOT = Path(__file__).resolve().parent
 st.set_page_config(page_title="SeQUeNCe.DQC · SC26", page_icon="⚛", layout="wide")
 st.markdown("""<style>
-.block-container {max-width: 1450px; padding-top: 2.2rem;}
+.block-container {max-width: 1450px; padding-top: 5rem;}
 h1 {letter-spacing: -.045em; font-weight: 750;}
 [data-testid="stMetric"] {background: #f3f6fa; padding: 18px; border-radius: 12px;}
 [data-testid="stSidebar"] {border-right: 1px solid #dce4ee;}
-.eyebrow {color: #087f73; letter-spacing: .16em; font-size: .78rem; font-weight: 700;}
+.eyebrow {color: #087f73; letter-spacing: .16em; font-size: .78rem; font-weight: 700; line-height: 1.5;}
 </style>""", unsafe_allow_html=True)
 
 
@@ -58,33 +60,46 @@ def results_download(result, key):
 
 def nature_page():
     st.markdown('<div class="eyebrow">01 / EXPERIMENT REPRODUCTION</div>', unsafe_allow_html=True)
-    st.title("One algorithm. Two quantum modules.")
-    st.write("Reproduce the distributed Grover experiment of Main et al., as modeled in Section 3 of the SeQUeNCe.DQC manuscript.")
+    st.title("Distributed Grover's Algorithm (2 Qubits, 2 Nodes)")
+    st.write("Reproduce the distributed Grover experiment from Main et al., "
+             "[Distributed quantum computing across an optical network link](https://www.nature.com/articles/s41586-024-08404-x), "
+             "Nature 638, 383–388 (2025).")
     left, right = st.columns([1, 1.6], gap="large")
     with left:
         st.subheader("The quantum network")
         st.plotly_chart(charts.network(), width="stretch", key="nature_network")
-        st.caption("One data qubit per module. Two teleported CZ gates connect the oracle and diffusion steps.")
+        model = st.selectbox("Noise model", ["Detailed", "Noiseless"])
         with st.form("nature_controls"):
-            model = st.selectbox("Noise model", ["Detailed", "Noiseless"])
-            bell = st.slider("Bell-pair fidelity", 0.80, 1.0, 0.9689, 0.0001, format="%.4f")
-            st.caption("Detailed: Bell fidelity changes the raw-entanglement budget; other Table 1 terms stay fixed. Noiseless: Bell fidelity is ignored.")
-            shots = st.select_slider("Shots per marked state", options=[10, 25, 50, 100, 250, 500, 2000], value=25)
+            bell, budget, local_error, readout_error = 1.0, {name: [0.0, 0.0] for name in ERROR_LABELS}, 0.0, 0.0
+            if model == "Detailed":
+                bell = st.slider("Bell-pair fidelity", 0.5, 1.0, 0.9689, 0.0001, format="%.4f")
+                error_rows = [{"Error source": label.replace(" (Z dephasing)", ""), "Alice (A)": 100 * TABLE1_BUDGET[name][0],
+                               "Bob (B)": 100 * TABLE1_BUDGET[name][1]} for name, label in ERROR_LABELS.items()]
+                edited_errors = st.data_editor(error_rows, hide_index=True, num_rows="fixed", width="stretch", height=220,
+                                               disabled=["Error source"], key="nature_error_table",
+                                               column_config={"Error source": st.column_config.TextColumn(width="medium"),
+                                                              "Alice (A)": st.column_config.NumberColumn(width="small", min_value=0.0, max_value=50.0, step=0.001, format="%.3f", required=True),
+                                                              "Bob (B)": st.column_config.NumberColumn(width="small", min_value=0.0, max_value=50.0, step=0.001, format="%.3f", required=True)})
+                budget = {name: [row["Alice (A)"] / 100, row["Bob (B)"] / 100] for name, row in zip(ERROR_LABELS, edited_errors)}
+                local, readout = st.columns(2)
+                local_error = local.number_input("Local H/X error (%)", min_value=0.0, max_value=50.0, value=0.01, step=0.001, format="%.3f") / 100
+                readout_error = readout.number_input("Final readout error (%)", min_value=0.0, max_value=100.0, value=0.5, step=0.01, format="%.3f") / 100
+            shots = st.select_slider("Shots per marked state", options=[100, 250, 500, 1000, 2000], value=100)
             seed = st.number_input("Random seed", min_value=0, max_value=1000000, value=1, key="nature_seed")
             if st.form_submit_button("Run distributed Grover", type="primary", disabled="job" in st.session_state):
-                launch({"scenario": "nature", "model": model, "bell": bell, "shots": shots, "seed": seed})
+                launch({"scenario": "nature", "model": model, "bell": bell, "budget": budget,
+                        "local_gate_error": local_error, "readout_error": readout_error, "shots": shots, "seed": seed})
                 st.rerun()
     with right:
         st.subheader("From circuit to experiment")
         st.plotly_chart(charts.circuit(), width="stretch", key="nature_circuit")
-        st.caption("Schematic: marked-state X masks around the oracle are omitted. Each CZ uses the network; local gates stay on their module.")
         reference = load_data("nature_reference")
         history = [r for r in st.session_state.get("nature_history", []) if r["model"] in ("Detailed", "Noiseless")]
         view = st.radio("Results", ["Manuscript reference", "Live runs"], horizontal=True, key="nature_view")
         if view == "Manuscript reference":
             series = {label: [{"state": f"{i:02b}", "success": value} for i, value in enumerate(values)] for label, values in reference["series"].items()}
-            st.caption("SAVED REFERENCE · 2,000 shots per state · rounded values from Section 3")
-            st.plotly_chart(charts.success_chart(series), width="stretch", key="reference_success")
+            st.caption(f"SAVED REFERENCE · {reference['shots_per_state']:,} shots per marked state for the detailed model · rounded source values")
+            st.plotly_chart(charts.success_chart(series).update_layout(height=460 if model == "Detailed" else 390), width="stretch", key="reference_success")
             columns = st.columns(len(series))
             for column, (label, values) in zip(columns, reference["series"].items()):
                 column.metric(label, f"{100 * sum(values) / 4:.1f}%")
@@ -92,24 +107,24 @@ def nature_page():
             choices = list(range(len(history)))
             chosen = st.multiselect("Compare completed runs", choices, default=choices[-2:], format_func=lambda i: f"Run {i + 1} · {history[i]['model']} · {history[i]['total_shots']} shots")
             series = {f"Run {i + 1} · {history[i]['model']}": history[i]["rows"] for i in chosen}
-            st.caption("LIVE SIMULATION · bars show 95% Wilson intervals · Nature band is the reported 71% average")
-            st.plotly_chart(charts.success_chart(series), width="stretch", key="live_success")
+            st.plotly_chart(charts.success_chart(series).update_layout(height=430 if model == "Detailed" else 390), width="stretch", key="live_success")
             latest = history[-1]
             columns = st.columns(3)
             columns[0].metric("Latest mean success", f"{100 * latest['success']:.1f}%")
             columns[1].metric("Total shots", latest["total_shots"])
             columns[2].metric("Wall time", f"{latest['wall_seconds']:.1f} s")
-            st.json(latest["config"], expanded=False)
-            st.dataframe([{"Run": i + 1, "Model": r["model"], "Bell fidelity": r["config"].get("bell"),
-                           "Shots": r["total_shots"], "Success (%)": round(r["success"] * 100, 1)}
-                          for i, r in enumerate(history)], hide_index=True, width="stretch")
+            st.json({"settings": latest["config"], "effective_noise": latest.get("effective_noise")}, expanded=False)
+            st.dataframe([history_row(r, i + 1) for i, r in enumerate(history)], hide_index=True, width="stretch")
             results_download({"runs": history}, "nature")
         else:
-            st.info("Run a simulation to compare all four marked states. Start with 25 shots per state; increase for a more precise estimate.")
+            st.info("Run a simulation to compare all four marked states. Start with 100 shots per state; increase for a more precise estimate.")
     with st.expander("What is reproduced?", expanded=False):
+        st.write("One data qubit per node. Two teleported CZ gates connect the oracle and diffusion steps.")
+        st.write("Bell fidelity sets raw-entanglement error. The table lists errors per CZ, in percent; A = Alice/control, B = Bob/target.")
+        st.write("Local and readout errors apply to both nodes. QC decoherence is a fixed Z-dephasing error, not a T₂ time.")
         st.write("The live run uses the existing density-matrix telegate and BSM pipeline, with the compiler fixed. The detailed model uses the Table 1 budget plus local-gate and final-readout errors. The noiseless control disables these noise channels.")
         st.write("These are effective calibrated noise models. Bell errors are injected after the gate; this view does not claim microscopic trapped-ion modeling. Link distance is fixed by the existing reproduction pipeline, and decoherence is a fixed error-budget term.")
-        st.write("The manuscript reports 73.8% for the detailed model, compared with the experimental 71% average. Finite-shot live runs will vary. The shaded experimental band is not a 95% confidence interval.")
+        st.write("The latest reference reports 72.9% average success for the detailed model over 10,000 shots per marked state, compared with the experimental 71% average. Finite-shot live runs will vary. The shaded experimental band is not a 95% confidence interval.")
         st.caption(reference["source"])
 
 
@@ -119,7 +134,7 @@ def saved_exploration():
     data = load_data("topo_exec" if mode == "Networks" else "compiler_comparison")
     st.caption("SAVED SIMULATION RESULTS · snapshot from dqc-experiments · changing the selection does not run a simulation")
     if mode == "Networks":
-        st.write("6 search qubits + 4 ancillas · 10 modules · one data slot per module · FGP compiler · z = 0.95")
+        st.write("6 search qubits + 4 ancillas · 10 nodes · one data slot per node · FGP compiler · z = 0.95")
         selected = st.selectbox("Inspect a topology", [r["name"] for r in data["rows"]])
         row = next(r for r in data["rows"] if r["name"] == selected)
         left, right = st.columns([1, 1.5])
@@ -133,7 +148,7 @@ def saved_exploration():
         columns[2].metric("Success", f"{100 * row['success']:.1f}%")
         st.info("All three networks execute 588 remote gates. Routes and hop counts change the communication overhead and success probability.")
     else:
-        st.write("4 search qubits + 2 ancillas · 2 modules · three data slots per module · same network · z = 0.95")
+        st.write("4 search qubits + 2 ancillas · 2 nodes · three data slots per node · same network · z = 0.95")
         labels = {r["key"]: r["label"].replace("\n", " ") for r in data["rows"]}
         selected = st.multiselect("Compiler configurations", list(labels), default=list(labels), format_func=labels.get)
         rows = [r for r in data["rows"] if r["key"] in selected]
@@ -150,7 +165,7 @@ def live_exploration():
     with left:
         with st.form("explore_controls"):
             qubits = st.selectbox("Search qubits", [3, 4], index=1)
-            modules = st.selectbox("Quantum modules", [2, 4])
+            modules = st.selectbox("Quantum nodes", [2, 4])
             topology = st.selectbox("Network topology", ["Star", "Grid", "Caveman"])
             compiler = st.selectbox("Compiler", ["QAP", "Random", "FGP · default", "FGP · low margin"])
             link = st.slider("Fiber length parameter (km)", 0.01, 20.0, 5.0, 0.01, format="%.2f")
@@ -186,7 +201,7 @@ def live_exploration():
                        "Fiber (km)": r["config"]["link_km"], "Memory efficiency": r["config"]["efficiency"],
                        "Noise": r["config"]["noise"], "z": r["config"].get("z", 0.95) if r["config"]["noise"] else None,
                        "Seed": r["config"]["seed"], "Search qubits": r["config"]["qubits"],
-                       "Modules": r["config"]["modules"], "Time (ms)": round(r["sim_ms"], 2),
+                       "Nodes": r["config"]["modules"], "Time (ms)": round(r["sim_ms"], 2),
                        "Remote gates": r["gates"], "Moves": r["moves"], "Success (%)": round(r["success"] * 100, 1),
                        "Shots": r["total_shots"]} for i, r in enumerate(history)], hide_index=True, width="stretch")
         results_download({"runs": history}, "exploration")

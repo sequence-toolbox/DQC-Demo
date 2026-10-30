@@ -24,33 +24,28 @@ def connect_sources():
 
 
 def nature(config, progress):
-    from demo.grover.nature_pipeline import TABLE1_BUDGET, run_single
+    from demo.grover.nature_pipeline import run_single
+    from demo.grover.error_budget import resolve_noise
 
     model, shots = config["model"], int(config["shots"])
     if model not in ("Noiseless", "Detailed") or not 1 <= shots <= 2000:
         raise ValueError("Invalid Nature reproduction configuration")
-    bell, cz = config["bell"], 1.0
-    if not 0.5 <= bell <= 1:
-        raise ValueError("Bell fidelity must be between 0.5 and 1")
-    if model == "Noiseless":
-        bell = cz = 1.0
-    budget = {**TABLE1_BUDGET, "raw_entanglement": 1 - bell} if model == "Detailed" else None
+    bell, budget, local_fidelity, readout_fidelity = resolve_noise(config)
     rows, done = [], 0
     for state in range(4):
         hits = 0
         for shot in range(shots):
             seed = int(config["seed"]) + state * shots + shot
-            hits += int(run_single(state, cz, 1 - bell, seed, budget=budget,
-                                   local_1q_fid=0.9999 if model == "Detailed" else 1.0,
-                                   readout_fid=0.995 if model == "Detailed" else 1.0))
+            hits += int(run_single(state, 1.0, 1 - bell, seed, budget=budget,
+                                   local_1q_fid=local_fidelity, readout_fid=readout_fidelity))
             done += 1
             progress(done / (4 * shots), f"Marked |{state:02b}〉 · shot {shot + 1}/{shots}")
         rows.append({"state": f"{state:02b}", "hits": hits, "shots": shots, "success": hits / shots})
     return {"rows": rows, "success": sum(r["success"] for r in rows) / 4,
             "total_shots": 4 * shots, "model": model,
-            "effective_noise": {"bell_fidelity": bell, "cz_fidelity": cz if model != "Detailed" else None,
-                                "budget": budget, "local_1q_fidelity": 0.9999 if model == "Detailed" else 1.,
-                                "readout_fidelity": 0.995 if model == "Detailed" else 1.}}
+            "effective_noise": {"bell_fidelity": bell, "cz_fidelity": 1.0 if model == "Noiseless" else None,
+                                "budget": budget, "local_1q_fidelity": local_fidelity,
+                                "readout_fidelity": readout_fidelity}}
 
 
 def exploration(config, progress):

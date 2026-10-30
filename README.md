@@ -2,7 +2,7 @@
 
 A local Streamlit + Plotly app with two scenarios:
 
-1. **Nature reproduction:** the two-node Grover experiment from Section 3 of the manuscript. The compiler is fixed. Run the existing density-matrix/BSM/telegate pipeline with the noiseless control or detailed noise model. Change Bell fidelity in the detailed model. Compare all four marked states with the manuscript and the experimental 71% average.
+1. **Nature reproduction:** the two-node Grover experiment from Section 3 of the manuscript. The compiler is fixed. Run the existing density-matrix/BSM/telegate pipeline with the noiseless control or detailed noise model. Adjust Bell fidelity and every Table I error source in the detailed model. Compare all four marked states with the manuscript and the experimental 71% average.
 2. **Networks & compilers:** explore saved manuscript topology/compiler results immediately, or run small live Grover workloads while changing topology, compiler, fiber length, memory efficiency, and hardware noise.
 
 ## Run on this laptop
@@ -32,12 +32,12 @@ The live worker uses the sibling SeQUeNCe.DQC engine checkout. For a different l
 ## Demo walkthrough
 
 - Start on **Nature reproduction**. Explain the two data qubits, the link, and the two teleported CZ operations.
-- The initial chart is the **saved manuscript reference**, not a newly computed result. It contains rounded percentages from `3-grovers.tex` (2,000 shots per marked state).
-- Run **Noiseless** at 25 shots per state. Switch Results to **Live runs** to see the end-to-end baseline.
+- The initial chart is the **saved manuscript reference**, not a newly computed result. It contains rounded percentages from `3-grovers.tex` (10,000 shots per marked state for the detailed model).
+- Run **Noiseless** at 100 shots per state. Switch Results to **Live runs** to see the end-to-end baseline.
 - Run **Detailed** at the manuscript default Bell fidelity of 0.9689. Compare with the noiseless control. Increase shots for a more stable estimate, or improve Bell fidelity to explore its effect.
-- In **Detailed**, Bell fidelity changes the raw-entanglement term; the remaining Table 1 terms, local-gate infidelity 0.0001, and final-readout infidelity 0.005 stay fixed. Noiseless ignores the Bell fidelity slider.
+- In **Detailed**, Bell fidelity changes the raw-entanglement term. The detailed-model form displays all five per-node error contributions in a compact editable table with Alice/control and Bob/target columns. Local H/X and final-readout error controls sit side by side below it. Controls use percentages; default local error 0.01% equals 0.0001 and readout error 0.5% equals 0.005. QC decoherence is an error contribution, not a time. Selecting Noiseless immediately hides the noise controls and fixes Bell fidelity to 1.0 and every error to zero. Run exports include the effective error budget and fidelities.
 - Switch to **Networks & compilers**. Saved network results hold the FGP compiler fixed; saved compiler results hold the two-node network fixed. These are different workloads, not a joint factorial experiment.
-- For a live comparison, keep the workload and seed fixed and change one network or compiler setting. Choose Star, Grid, or Caveman, matching the paper's topology families. Two-node layouts are the same physical graph; choose four modules to compare distinct edge structures. The small live Caveman consists of two intact cliques joined by one bridge (four modules give a four-node path). The saved ten-node Caveman retains the original experiment's NetworkX connected-caveman construction. All four-node layouts currently have equal capacity per node.
+- For a live comparison, keep the workload and seed fixed and change one network or compiler setting. Choose Star, Grid, or Caveman, matching the paper's topology families. Two-node layouts are the same physical graph; choose four nodes to compare distinct edge structures. The small live Caveman consists of two intact cliques joined by one bridge (four nodes give a four-node path). The saved ten-node Caveman retains the original experiment's NetworkX connected-caveman construction. All four-node layouts currently have equal capacity per node.
 
 ## Interpretation and limits
 
@@ -47,12 +47,12 @@ The live worker uses the sibling SeQUeNCe.DQC engine checkout. For a different l
 - Larger circuits use the ket-vector runtime. With hardware noise enabled, select the existing coordinated hardware model at z = 0.00, 0.25, 0.50, 0.65, 0.80, 0.90, 0.95, or 1.00 (default 0.95). The worker uses the original `noise_z.ZTABLE` values, including fixed T1 and the tabulated T2 at z = 1; z = 1 is distinct from disabling noise entirely. Initialization fidelity is tabulated but not applied by that model. With noise disabled, circuit measurement is still probabilistic.
 - Live simulated time is averaged across shots. The compiler placement seed is fixed across shots; noisy network and measurement seeds vary. Operation counts and hop histograms are reported from the first shot. These counts are not measured Bell-pair consumption.
 - The fiber control passes the engine's `link_km` parameter unchanged. Its current channel generator assigns that distance to each QPU-to-BSM optical channel; do not interpret this UI value as a separately validated end-to-end physical length.
-- Live sizes are bounded to 3–4 search qubits, 2 or 4 modules, and 1–1,000 shots. Fiber length ranges from 0.01 to 20 km in 0.01 km increments. Ancillas are included when automatically choosing balanced capacity. A 10-minute timeout and Cancel button bound each job; large runs on long links may require reducing the shot count.
+- Live sizes are bounded to 3–4 search qubits, 2 or 4 nodes, and 1–1,000 shots. Fiber length ranges from 0.01 to 20 km in 0.01 km increments. Ancillas are included when automatically choosing balanced capacity. A 10-minute timeout and Cancel button bound each job; large runs on long links may require reducing the shot count.
 - One worker runs per browser session. Workers isolate simulator globals from Streamlit. Closing/reloading the browser can lose the session history; run JSON files remain under `runs/`. Each worker enforces its own timeout even if the browser closes; Cancel stops it immediately.
 
 ## Sources and exports
 
-- `data/nature_reference.json`: rounded Section 3 simulation results transcribed from the local manuscript, snapshot 2026-10-29. The experimental average is quoted by that section.
+- `data/nature_reference.json`: updated detailed simulation values from `dqc-experiments/figures/code/plot_grover_success.py`, cross-checked against Section 3, snapshot 2026-10-29 (10,000 shots per marked state; 72.9%, 72.7%, 72.7%, 73.2%). Values are copied into this repository; no runtime experiment-package dependency is introduced. The experimental average is quoted by that section.
 - `data/topo_exec.json`, `data/compiler_comparison.json`: unchanged snapshots of the matching files under the sibling `dqc-experiments/dqc_experiments/results/`, taken 2026-10-28. Original metadata is preserved. In particular, the random compiler row is an average over placements; its shot metadata should be interpreted using the originating experiment rather than as a single binomial sample.
 - Live execution uses the local `demo.grover.nature_pipeline.run_single` and the SeQUeNCe engine's `sequence.dqc.runtime.run`. It does not import the experiment package or modify the engine.
 - Copied from dqc-experiments on 2026-10-29: `circuits/grover_circuit_builder.py`, `paper_replication/cz_grover_circuit_builder.py`, `paper_replication/noisy_barrier.py`, `paper_replication/grover_2node_pipeline.py`, and `noise_z.py`. Their local counterparts are `demo/grover/grover_circuit_builder.py`, `demo/grover/cz_grover_circuit_builder.py`, `demo/grover/noisy_barrier.py`, `demo/grover/nature_pipeline.py`, and `demo/grover/noise_z.py`. Imports now reference local modules; the unused runner CLI was omitted. Simulation algorithms and noise parameters are preserved.

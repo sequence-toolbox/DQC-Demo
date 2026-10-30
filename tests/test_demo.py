@@ -20,10 +20,27 @@ def radio(app, label):
 
 
 class AppTests(unittest.TestCase):
+    def test_noiseless_hides_and_zeroes_errors(self):
+        app = AppTest.from_file(APP, default_timeout=20).run()
+        next(w for w in app.selectbox if w.label == "Noise model").set_value("Noiseless").run()
+        self.assertFalse(app.exception)
+        self.assertFalse(any(w.label == "Bell-pair fidelity" for w in app.slider))
+        self.assertFalse(any(w.label == "A error (%)" for w in app.number_input))
+        self.assertEqual(len(app.dataframe), 0)
+        self.assertFalse(any(w.label.startswith("Local H/X") or w.label.startswith("Final readout") for w in app.number_input))
+        with patch("demo.jobs.start", return_value={"config": {}}) as start, patch("demo.jobs.poll", return_value=("running", {"value": 0, "message": "Testing submission"})):
+            next(b for b in app.button if b.label == "Run distributed Grover").click().run()
+        config = start.call_args.args[0]
+        self.assertEqual(config["bell"], 1.0)
+        self.assertTrue(all(pair == [0., 0.] for pair in config["budget"].values()))
+        self.assertEqual((config["local_gate_error"], config["readout_error"]), (0., 0.))
+        from demo.grover.error_budget import resolve_noise
+        self.assertEqual(resolve_noise(config), (1., None, 1., 1.))
+
     def test_navigation_and_saved_comparisons(self):
         app = AppTest.from_file(APP, default_timeout=20).run()
         self.assertFalse(app.exception)
-        self.assertEqual([m.value for m in app.metric], ["100.0%", "73.8%"])
+        self.assertEqual([m.value for m in app.metric], ["100.0%", "72.9%"])
         self.assertEqual(next(w for w in app.selectbox if w.label == "Noise model").options, ["Detailed", "Noiseless"])
         radio(app, "Results").set_value("Live runs").run()
         self.assertFalse(app.exception)
@@ -61,9 +78,43 @@ class AppTests(unittest.TestCase):
         radio(app, "Results").set_value("Live runs").run()
         self.assertFalse(app.exception)
         self.assertEqual(app.metric[0].value, "100.0%")
+        recorded = next(frame.value for frame in app.dataframe if "Bell fidelity" in frame.value.columns).iloc[0]
+        self.assertEqual(recorded["Bell fidelity"], 1.)
+        self.assertTrue(all(recorded[name] == 0 for name in recorded.index if name.endswith("(%)") and name != "Success (%)"))
 
 
 class SimulationTests(unittest.TestCase):
+    def test_table_budget_controls_reach_simulation(self):
+        from demo.simulation import connect_sources
+        connect_sources()
+        app = AppTest.from_file(APP, default_timeout=20).run()
+        app.session_state["nature_error_table"] = {"edited_rows": {0: {"Alice (A)": 1.5}, 1: {"Bob (B)": .25}}, "added_rows": [], "deleted_rows": []}
+        next(w for w in app.number_input if w.label.startswith("Local H/X")).set_value(0.02)
+        next(w for w in app.number_input if w.label.startswith("Final readout")).set_value(1.0)
+        with patch("demo.jobs.start", return_value={"config": {}}) as start, patch("demo.jobs.poll", return_value=("running", {"value": 0, "message": "Testing submission"})):
+            next(b for b in app.button if b.label == "Run distributed Grover").click().run()
+        self.assertFalse(app.exception)
+        config = {**start.call_args.args[0], "shots": 1}
+        with patch("demo.grover.nature_pipeline.run_single", return_value=True) as shot:
+            result = simulate(config, lambda *args: None)
+        self.assertEqual(shot.call_count, 4)
+        actual = shot.call_args.kwargs
+        self.assertAlmostEqual(actual["budget"]["mixed_species"][0], .015)
+        self.assertAlmostEqual(actual["budget"]["qc_decoherence"][1], .0025)
+        self.assertAlmostEqual(actual["budget"]["midcircuit_meas"][0], .00091)
+        self.assertAlmostEqual(actual["local_1q_fid"], .9998)
+        self.assertAlmostEqual(actual["readout_fid"], .99)
+        self.assertEqual(result["effective_noise"]["budget"], actual["budget"])
+        from demo.grover.history import history_row
+        recorded = history_row(result, 1)
+        self.assertEqual(recorded["Mixed-species gate · Alice (%)"], 1.5)
+        self.assertEqual(recorded["QC decoherence (Z dephasing) · Bob (%)"], .25)
+        self.assertEqual(recorded["Local H/X error (%)"], .02)
+        self.assertEqual(recorded["Final readout error (%)"], 1.)
+        self.assertEqual(recorded["Raw entanglement error (%)"], 3.11)
+        with self.assertRaises(ValueError):
+            simulate({**config, "budget": {"mixed_species": [-.1, 0]}}, lambda *args: None)
+
     def test_runs_without_experiment_package(self):
         code = textwrap.dedent('''
             import sys
@@ -76,12 +127,17 @@ class SimulationTests(unittest.TestCase):
 
             sys.meta_path.insert(0, BlockExperiments())
             from demo.simulation import simulate
+            from demo.grover.error_budget import ERROR_LABELS
             for model in ("Noiseless", "Detailed"):
                 result = simulate(dict(scenario="nature", model=model, bell=.9689, shots=1, seed=1), lambda *args: None)
                 assert result["total_shots"] == 4
                 assert "experiments" not in result["source_paths"]
                 if model == "Noiseless":
                     assert result["success"] == 1.
+            result = simulate(dict(scenario="nature", model="Detailed", bell=1., shots=1, seed=1,
+                                   budget={name: [0., 0.] for name in ERROR_LABELS},
+                                   local_gate_error=0., readout_error=0.), lambda *args: None)
+            assert result["success"] == 1.
             result = simulate(dict(scenario="exploration", qubits=3, modules=2, shots=1, topology="Star",
                                    compiler="QAP", link_km=.01, efficiency=.9, noise=True, z=.25, seed=1), lambda *args: None)
             assert result["total_qubits"] == 4

@@ -20,23 +20,12 @@ import sequence.dqc.architecture as topo
 
 from demo.grover.cz_grover_circuit_builder import CZGroverCircuitBuilder
 from demo.grover.noisy_barrier import NoisyBarrierController
+from demo.grover.error_budget import TABLE1_BUDGET
 
 logging.disable(logging.CRITICAL)
 
 N_DATA = 2
 MARKED_STATES = [0, 1, 2, 3]
-
-# Paper Table-1 error budget for one teleported CZ (average gate-infidelity contributions).
-# Raw entanglement is shared; the rest are per-module (A = control/Alice, B = target/Bob).
-TABLE1_BUDGET = {
-    "raw_entanglement": 0.0311,            # shared Bell pair (96.89% fidelity)
-    "mixed_species":   (0.024,   0.020),   # Sr-Ca network<->circuit gate
-    "qc_decoherence":  (0.019,   0.018),   # circuit-qubit T2 during protocol
-    "xc_transfer":     (0.0076,  0.0052),  # Q_X <-> Q_C state transfer
-    "midcircuit_meas": (0.00091, 0.00122), # network-qubit readout error
-    "qc_rotations":    (0.00016, 0.00015), # single-qubit rotation error
-}
-
 
 def _build_net():
     """Build a 2-module density-matrix network whose partition forces the two data qubits onto
