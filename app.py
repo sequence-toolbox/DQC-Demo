@@ -155,7 +155,9 @@ def saved_exploration():
     st.caption("SAVED SIMULATION RESULTS · snapshot from dqc-experiments · changing the selection does not run a simulation")
     if mode == "Networks":
         st.write("6 search qubits + 4 ancillas · 10 nodes · one data slot per node · FGP compiler · z = 0.95")
-        selected = st.selectbox("Inspect a topology", [r["name"] for r in data["rows"]])
+        label_column, dropdown_column, _ = st.columns([1.2, 2, 6], vertical_alignment="center")
+        label_column.write("Inspect a topology")
+        selected = dropdown_column.selectbox("Inspect a topology", [r["name"] for r in data["rows"]], width=240, label_visibility="collapsed")
         row = next(r for r in data["rows"] if r["name"] == selected)
         left, right = st.columns([1, 1.5])
         with left:
@@ -290,7 +292,7 @@ else:
     st.markdown('<div class="eyebrow">02 / NETWORK & COMPILER EXPLORATION</div>', unsafe_allow_html=True)
     st.title("The network matters. So does the compiler.")
     st.write("Compare various quantum network and compilation strategies for distributed Grover search.")
-    mode = st.radio("Experience", ["Saved manuscript results", "Live simulation"], horizontal=True)
+    mode = st.radio("Experience", ["Saved manuscript results", "Live simulation"], horizontal=True, label_visibility="collapsed")
     if mode == "Saved manuscript results":
         saved_exploration()
     else:
