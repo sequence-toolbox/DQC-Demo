@@ -23,13 +23,21 @@ def radio(app, label):
 
 
 class AppTests(unittest.TestCase):
+    def test_paper_colors_follow_categories(self):
+        from demo.charts import comparison, success_chart
+        rows = [{"key": key, "label": key, "sim_ms": 1} for key in ("random", "qap", "fgp_la10", "fgp_la20", "fgp_mm0", "amaro_1", "amaro_2")]
+        self.assertEqual(list(comparison(rows, "sim_ms", "Time").data[0].marker.color), ["#C44E52", "#55A868", "#4C72B0", "#4C72B0", "#4C72B0", "#8172B3", "#8172B3"])
+        self.assertEqual(comparison(rows[3:4], "sim_ms", "Time").data[0].marker.color[0], "#4C72B0")
+        series = {"Noiseless": [{"state": "00", "success": 1}], "Detailed": [{"state": "00", "success": .73}]}
+        self.assertEqual([trace.marker.color for trace in success_chart(series).data], ["#C44E52", "#55A868"])
+
     def test_topology_draws_qubit_slots(self):
         from demo.charts import network
         for kind, nodes, capacity in (("Star", 2, 3), ("Grid", 4, 2), ("Caveman", 10, 1), ("Two nodes", 2, 1)):
             figure = network(kind, nodes, capacity=capacity)
             dots = [a for a in figure.layout.annotations if a.name == "data_qubit"]
             self.assertEqual(len(dots), nodes * capacity)
-            self.assertTrue(all(a.font.color == "#dc2626" for a in dots))
+            self.assertTrue(all(a.font.color == "#E68124" for a in dots))
             for x, y in zip(figure.data[-1].x, figure.data[-1].y):
                 self.assertEqual(sum(a.x == x and a.y == y for a in dots), capacity)
         for capacities in ([3, 3, 3, 3], [6, 3, 2, 1], [9, 1, 1, 1]):
@@ -49,7 +57,7 @@ class AppTests(unittest.TestCase):
         self.assertEqual(table["Distribution"].tolist(), ["balanced", "mid", "skewed"])
         self.assertEqual(table["Time (ms)"].tolist(), [410.72, 261.96, 165.52])
         self.assertEqual(table["Success (%)"].tolist(), [27., 49.7, 52.6])
-        self.assertFalse(any(button.label == "Simulate" for button in app.button))
+        self.assertFalse(any(button.label == "Run distributed Grover" for button in app.button))
 
     def test_star_has_centered_hub_and_spokes(self):
         from demo.charts import network
@@ -129,7 +137,7 @@ class AppTests(unittest.TestCase):
         self.assertFalse(app.exception)
         radio(app, "Experience").set_value("Live simulation").run()
         self.assertFalse(app.exception)
-        self.assertTrue(any(b.label == "Simulate" for b in app.button))
+        self.assertTrue(any(b.label == "Run distributed Grover" for b in app.button))
         self.assertEqual(next(w for w in app.selectbox if w.label == "Search qubits").options, ["3", "4", "5", "6"])
         self.assertEqual(next(w for w in app.selectbox if w.label == "Network topology").options, ["Star", "Grid", "Caveman"])
         self.assertEqual(next(w for w in app.selectbox if w.label == "Quantum nodes").options, ["2", "3", "6"])
@@ -143,7 +151,7 @@ class AppTests(unittest.TestCase):
         self.assertEqual(quality.options, ["0.00", "0.25", "0.50", "0.65", "0.80", "0.90", "0.95", "1.00"])
         quality.set_value(0.25)
         with patch("demo.jobs.start", return_value={"config": {}}) as start, patch("demo.jobs.poll", return_value=("running", {"value": 0, "message": "Testing submission"})):
-            next(b for b in app.button if b.label == "Simulate").click().run()
+            next(b for b in app.button if b.label == "Run distributed Grover").click().run()
         submitted = start.call_args.args[0]
         self.assertEqual((submitted["link_km"], submitted["shots"], submitted["z"]), (20.0, 250, 0.25))
         self.assertFalse(app.exception)

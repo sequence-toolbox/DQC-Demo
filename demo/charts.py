@@ -5,7 +5,20 @@ import networkx as nx
 import plotly.graph_objects as go
 from demo.topologies import topology_graph
 
-COLORS = ["#0d9488", "#4878d0", "#c58a21", "#995ac6"]
+# Shared palette from the manuscript figure scripts.
+RED, GREEN, BLUE, PURPLE = "#C44E52", "#55A868", "#4C72B0", "#8172B3"
+QUBIT_COLOR = "#E68124"
+COLORS = [RED, GREEN, BLUE, PURPLE]
+COMPILER_COLORS = {"random": RED, "qap": GREEN, "fgp": BLUE, "amaro": PURPLE}
+COMPARISON_COLORS = {"star": RED, "grid": GREEN, "caveman": BLUE,
+                     "balanced": RED, "mid": GREEN, "skewed": BLUE}
+
+
+def comparison_color(row, index):
+    """Keep manuscript category colors stable when rows are filtered."""
+    key = row.get("key", row.get("name", row.get("label", ""))).lower()
+    family = key.split("_")[0].split()[0] if key else ""
+    return COMPILER_COLORS.get(family, COMPARISON_COLORS.get(key, COLORS[index % len(COLORS)]))
 
 
 def style(fig, height=340):
@@ -59,7 +72,7 @@ def network(kind="Two nodes", modules=2, edges=None, capacity=1, capacities=None
     fig = go.Figure()
     for a, b in graph.edges():
         bridge = kind == "Caveman" and (a < modules // 2) != (b < modules // 2)
-        edge_color = "#4878d0" if bridge else "#a5b7c8" if kind == "Caveman" else "#48748d"
+        edge_color = "#444444"
         edge_width = 3.5 if bridge else 1.5 if kind == "Caveman" else 3
         fig.add_trace(go.Scatter(x=[positions[a][0], positions[b][0]], y=[positions[a][1], positions[b][1]],
                                  mode="lines", line={"color": edge_color, "width": edge_width}, hoverinfo="skip", showlegend=False))
@@ -68,14 +81,13 @@ def network(kind="Two nodes", modules=2, edges=None, capacity=1, capacities=None
         labels[0] += " · hub"
     node_size = 68 if modules == 2 else 58 if modules <= 6 else 44
     node_sizes = [max(node_size, 24 + 18 * math.ceil(math.sqrt(value))) if value > 3 else node_size for value in capacities]
-    blue_nodes = [kind == "Star" and i == 0 or kind == "Caveman" and i >= modules // 2 for i in graph.nodes()]
     fig.add_trace(go.Scatter(x=[positions[i][0] for i in graph.nodes()], y=[positions[i][1] for i in graph.nodes()],
                              mode="markers", text=labels, showlegend=False, opacity=1.0,
                              customdata=capacities,
                              hovertemplate="%{text}<br>Data capacity: %{customdata}<extra></extra>",
                              marker={"size": node_sizes, "opacity": 1.0,
-                                     "color": ["#e5edff" if blue else "#e5f7f3" for blue in blue_nodes],
-                                     "line": {"color": [COLORS[1] if blue else COLORS[0] for blue in blue_nodes], "width": 2}}))
+                                     "color": "white",
+                                     "line": {"color": "#444444", "width": 2}}))
     for node in graph.nodes():
         dx, dy = 0.0, -1.0
         if kind == "Star" and modules > 2:
@@ -106,11 +118,11 @@ def network(kind="Two nodes", modules=2, edges=None, capacity=1, capacities=None
                 xshift, yshift = 18 * (slot % columns - (columns - 1) / 2), 18 * ((rows - 1) / 2 - slot // columns)
             fig.add_annotation(x=positions[node][0], y=positions[node][1],
                                xshift=xshift, yshift=yshift,
-                               text="●", font={"color": "#dc2626", "size": 22}, showarrow=False,
+                               text="●", font={"color": QUBIT_COLOR, "size": 22}, showarrow=False,
                                hovertext=f"{labels[node]} · data qubit slot {slot + 1}/{count}",
                                name="data_qubit")
     if modules == 2:
-        fig.add_annotation(x=0, y=0.12, text="Heralded entanglement generation", showarrow=False)
+        fig.add_annotation(x=0, y=0.12, text="Heralded<br>entanglement generation", yanchor="bottom", showarrow=False)
     fig.update_xaxes(visible=False, range=[-1.5, 1.5])
     fig.update_yaxes(visible=False, range=[-1.4, 1.4])
     if kind == "Star" and modules > 2:
@@ -124,10 +136,10 @@ def network(kind="Two nodes", modules=2, edges=None, capacity=1, capacities=None
 def circuit():
     fig = go.Figure()
     for y, name in ((1, "Alice · q₀"), (0, "Bob · q₁")):
-        fig.add_trace(go.Scatter(x=[0, 7], y=[y, y], mode="lines", line={"color": "#48748d", "width": 2}, showlegend=False, hoverinfo="skip"))
+        fig.add_trace(go.Scatter(x=[0, 7], y=[y, y], mode="lines", line={"color": "#444444", "width": 2}, showlegend=False, hoverinfo="skip"))
         fig.add_annotation(x=-0.1, y=y, text=name, xanchor="right", showarrow=False)
         for x, gate in ((0.6, "H"), (3.2, "H · X"), (5.7, "X · H"), (6.8, "M")):
-            fig.add_annotation(x=x, y=y, text=gate, showarrow=False, bgcolor="#e8eef6", borderpad=6)
+            fig.add_annotation(x=x, y=y, text=gate, showarrow=False, bgcolor="#eeeeee", borderpad=6)
     for x, label in ((1.9, "Oracle"), (4.5, "Diffusion")):
         fig.add_trace(go.Scatter(x=[x, x], y=[0, 1], mode="lines+markers", marker={"size": 12, "color": COLORS[0]}, line={"color": COLORS[0], "width": 3}, showlegend=False, hoverinfo="skip"))
         fig.add_annotation(x=x, y=1.65, text=f"{label}<br>teleported CZ", showarrow=False, font={"color": COLORS[0]} )
@@ -147,16 +159,20 @@ def success_chart(series, height=390):
                       "array": [high * 100 - value for (_, high), value in zip(bounds, values)],
                       "arrayminus": [value - low * 100 for (low, _), value in zip(bounds, values)]}
         fig.add_trace(go.Bar(name=label, x=[f"|{r['state']}〉" for r in rows], y=values,
-                             marker_color=COLORS[i % len(COLORS)], error_y=errors,
+                             text=[f"{value:.1f}%" for value in values], textposition="outside", textfont={"size": 18, "color": "#172b42"}, cliponaxis=False,
+                             marker_color=RED if "noiseless" in label.lower() else GREEN if "detailed" in label.lower() else COLORS[i % len(COLORS)], error_y=errors,
                              hovertemplate="%{x}<br>%{y:.1f}% success<extra>%{fullData.name}</extra>"))
-    fig.add_hrect(y0=70, y1=72, fillcolor="#c58a21", opacity=0.12, line_width=0)
-    fig.add_hline(y=71, line_dash="dash", line_color="#a66b0c", annotation_text="Nature · 71% average")
+    fig.add_hline(y=71, line_dash="dash", line_color="black", name="Nature · 71% average", showlegend=True)
     fig.update_layout(barmode="group", yaxis_title="Success probability (%)", yaxis_range=[0, 110], xaxis_title="Marked state")
     return style(fig, height)
 
 
 def comparison(rows, metric, title, key="label"):
     fig = go.Figure(go.Bar(x=[r[key].replace("\n", " ") for r in rows], y=[r[metric] for r in rows],
-                           marker_color=[COLORS[i % len(COLORS)] for i in range(len(rows))]))
+                           marker_color=[comparison_color(row, i) for i, row in enumerate(rows)]))
+    if rows and all("success" in row for row in rows):
+        fig.update_traces(text=[f"{100 * row['success']:.1f}% success" for row in rows], textposition="outside",
+                          textfont={"size": 18, "color": "#172b42"}, cliponaxis=False)
+        fig.update_yaxes(range=[0, max(row[metric] for row in rows) * 1.22])
     fig.update_layout(yaxis_title=title)
     return style(fig, 350)

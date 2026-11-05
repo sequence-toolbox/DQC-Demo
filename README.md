@@ -1,4 +1,4 @@
-# SeQUeNCe.DQC — SC26 demo
+# SeQUeNCe.DQC Demo
 
 A local Streamlit + Plotly app with two scenarios:
 

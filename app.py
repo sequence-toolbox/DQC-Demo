@@ -1,4 +1,4 @@
-"""SC26 local interactive demo. Run with: streamlit run app.py."""
+"""Interactive SeQUeNCe.DQC demo. Run with: streamlit run app.py."""
 import json
 from html import escape
 from pathlib import Path
@@ -11,7 +11,7 @@ from demo.grover.error_budget import TABLE1_BUDGET, ERROR_LABELS, ERROR_HELP
 from demo.grover.history import history_row
 
 ROOT = Path(__file__).resolve().parent
-st.set_page_config(page_title="SeQUeNCe.DQC · SC26", page_icon="⚛", layout="wide")
+st.set_page_config(page_title="SeQUeNCe.DQC · Demo", page_icon=ROOT / "assets" / "Sequence_Icon.svg", layout="wide")
 st.markdown("""<style>
 .block-container {max-width: 1450px; padding-top: 5rem;}
 h1 {letter-spacing: -.045em; font-weight: 750;}
@@ -176,14 +176,12 @@ def saved_exploration():
                 st.plotly_chart(charts.network("Line", 4, capacities=row["caps"]).update_layout(height=180), width="stretch", key=f"capacity_{row['key']}")
         with right:
             figure = charts.comparison(data["rows"], "sim_ms", "Simulated execution time (ms)")
-            figure.update_traces(text=[f"{100 * row['success']:.1f}% success" for row in data["rows"]], textposition="outside", cliponaxis=False)
-            figure.update_yaxes(range=[0, max(row["sim_ms"] for row in data["rows"]) * 1.2])
             st.plotly_chart(figure, width="stretch", key="capacity_times")
             st.dataframe([{"Distribution": row["key"], "Data slots": str(row["caps"]), "Remote gates": row["gates"],
                            "Qubit moves": row["moves"], "Time (ms)": row["sim_ms"], "Success (%)": round(100 * row["success"], 1)}
                           for row in data["rows"]], hide_index=True, width="stretch")
             st.info("The topology and total capacity stay fixed. Concentrating capacity lets the compiler co-locate interacting qubits, changing the remote-gate and qubit-move mix.")
-            st.caption("Red circles show data slots. Execution times come from noiseless runs; success rates use 1,000 noisy shots at z = 0.95. These are saved Figure 6(b) results.")
+            st.caption("Orange circles show data slots. Execution times come from noiseless runs; success rates use 1,000 noisy shots at z = 0.95. These are saved Figure 6(b) results.")
     else:
         st.write("4 search qubits + 2 ancillas · 2 nodes · three data slots per node · same network · z = 0.95")
         labels = {r["key"]: r["label"].replace("\n", " ") for r in data["rows"]}
