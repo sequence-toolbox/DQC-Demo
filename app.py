@@ -273,6 +273,9 @@ with st.sidebar:
     st.divider()
     st.write("**The Question**")
     st.write("How does quantum network and compilation jointly shape distributed quantum computation?")
+    st.divider()
+    st.write("**Research paper**")
+    st.markdown("[SeQUeNCe.DQC: Full-stack Simulation of Distributed Quantum Computing](https://arxiv.org/pdf/2610.39476)")
 
 monitor()
 if error := st.session_state.get("job_error"):
