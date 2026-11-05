@@ -12,6 +12,17 @@ ERROR_LABELS = {"mixed_species": "Mixed-species gate",
                 "midcircuit_meas": "Mid-circuit measurement",
                 "qc_rotations": "In-CZ rotations"}
 
+# Paraphrased from Main et al., Nature 638, 383-388 (2025), Table 1 and Methods.
+# Local-gate and final-readout entries describe the additional demo noise channels.
+ERROR_HELP = {"raw_entanglement": "Quality of the Bell pair shared by the remote network qubits. Imperfect entanglement introduces errors into the teleported CZ; the raw-entanglement error is 1 minus this fidelity.",
+              "mixed_species": "Imperfect local CZ gates between the strontium network qubit and calcium auxiliary qubit. These gates connect the shared entanglement to the circuit qubits.",
+              "qc_decoherence": "Loss of the circuit qubit's phase coherence while waiting for remote entanglement. This control is a fixed dephasing error contribution, not a T2 time in seconds.",
+              "xc_transfer": "Errors when transferring quantum information between the calcium circuit qubit (QC) and auxiliary qubit (QX), then back again, to perform the local entangling gate.",
+              "midcircuit_meas": "Incorrect measurements of the network qubits during gate teleportation. A wrong outcome can cause the wrong conditional correction on the circuit qubits.",
+              "qc_rotations": "Imperfect single-qubit rotations of the circuit qubits within the teleported-CZ protocol, including conditional corrections. Separate from the Grover H/X gates below.",
+              "local_gate": "Error applied after each local Hadamard (H) or bit-flip (X) gate in the Grover circuit. The same error setting is used on both nodes.",
+              "readout": "Probability of reporting the wrong classical bit when a circuit qubit is measured at the end of Grover's algorithm. Separate from the mid-circuit network-qubit measurements."}
+
 
 def resolve_noise(config):
     bell = float(config["bell"])

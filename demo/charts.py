@@ -50,28 +50,32 @@ def network(kind="Two nodes", modules=2, edges=None, capacity=1, capacities=None
     elif kind == "Grid":
         columns = modules // 2 if modules % 2 == 0 else modules
         positions = {i: (-1 + 2 * (i % columns) / max(1, columns - 1),
-                         0.4 - 0.8 * (i // columns) if modules % 2 == 0 else 0.0) for i in graph.nodes()}
+                         0.8 - 1.6 * (i // columns) if modules % 2 == 0 else 0.0) for i in graph.nodes()}
     elif kind == "Caveman":
         size = modules // 2
         angles = {i: 2 * math.pi * (i - size + 1) / size if i < size else math.pi + 2 * math.pi * (i - size) / size for i in graph.nodes()}
-        positions = {i: ((-0.8 if i < size else 0.8) + 0.45 * math.cos(angles[i]),
-                         0.6 * math.sin(angles[i])) for i in graph.nodes()}
+        positions = {i: ((-1.05 if i < size else 1.05) + 0.6 * math.cos(angles[i]),
+                         0.8 * math.sin(angles[i])) for i in graph.nodes()}
     fig = go.Figure()
     for a, b in graph.edges():
+        bridge = kind == "Caveman" and (a < modules // 2) != (b < modules // 2)
+        edge_color = "#4878d0" if bridge else "#a5b7c8" if kind == "Caveman" else "#48748d"
+        edge_width = 3.5 if bridge else 1.5 if kind == "Caveman" else 3
         fig.add_trace(go.Scatter(x=[positions[a][0], positions[b][0]], y=[positions[a][1], positions[b][1]],
-                                 mode="lines", line={"color": "#48748d", "width": 3}, hoverinfo="skip", showlegend=False))
+                                 mode="lines", line={"color": edge_color, "width": edge_width}, hoverinfo="skip", showlegend=False))
     labels = ["Alice", "Bob"] if modules == 2 else [f"QPU {i + 1}" for i in graph.nodes()]
     if kind == "Star":
         labels[0] += " · hub"
     node_size = 68 if modules == 2 else 58 if modules <= 6 else 44
     node_sizes = [max(node_size, 24 + 18 * math.ceil(math.sqrt(value))) if value > 3 else node_size for value in capacities]
+    blue_nodes = [kind == "Star" and i == 0 or kind == "Caveman" and i >= modules // 2 for i in graph.nodes()]
     fig.add_trace(go.Scatter(x=[positions[i][0] for i in graph.nodes()], y=[positions[i][1] for i in graph.nodes()],
                              mode="markers", text=labels, showlegend=False, opacity=1.0,
                              customdata=capacities,
                              hovertemplate="%{text}<br>Data capacity: %{customdata}<extra></extra>",
                              marker={"size": node_sizes, "opacity": 1.0,
-                                     "color": ["#e5edff" if kind == "Star" and i == 0 else "#e5f7f3" for i in graph.nodes()],
-                                     "line": {"color": [COLORS[1] if kind == "Star" and i == 0 else COLORS[0] for i in graph.nodes()], "width": 2}}))
+                                     "color": ["#e5edff" if blue else "#e5f7f3" for blue in blue_nodes],
+                                     "line": {"color": [COLORS[1] if blue else COLORS[0] for blue in blue_nodes], "width": 2}}))
     for node in graph.nodes():
         dx, dy = 0.0, -1.0
         if kind == "Star" and modules > 2:
@@ -82,6 +86,9 @@ def network(kind="Two nodes", modules=2, edges=None, capacity=1, capacities=None
                 dx, dy = positions[node]
         elif kind == "Grid" and modules > 2 and modules % 2 == 0:
             dy = 1.0 if node < modules // 2 else -1.0
+        elif kind == "Caveman" and modules > 2:
+            if node not in (modules // 2 - 1, modules // 2):
+                dx, dy = math.cos(angles[node]), math.sin(angles[node])
         fig.add_annotation(x=positions[node][0], y=positions[node][1],
                            xshift=(node_sizes[node] / 2 + 8) * dx, yshift=(node_sizes[node] / 2 + 8) * dy,
                            xanchor="left" if dx > .25 else "right" if dx < -.25 else "center",
@@ -108,7 +115,10 @@ def network(kind="Two nodes", modules=2, edges=None, capacity=1, capacities=None
     fig.update_yaxes(visible=False, range=[-1.4, 1.4])
     if kind == "Star" and modules > 2:
         fig.update_yaxes(scaleanchor="x", scaleratio=1)
-    return style(fig, 380 if kind == "Star" and modules > 2 else 290)
+    if kind == "Caveman" and modules > 2:
+        fig.update_xaxes(range=[-2.35, 2.35])
+        fig.update_yaxes(range=[-1.6, 1.6])
+    return style(fig, 400 if kind == "Caveman" and modules > 2 else 380 if kind == "Star" and modules > 2 else 290)
 
 
 def circuit():

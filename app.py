@@ -1,11 +1,13 @@
 """SC26 local interactive demo. Run with: streamlit run app.py."""
 import json
+from html import escape
 from pathlib import Path
 
 import streamlit as st
+import pandas as pd
 
 from demo import charts, jobs
-from demo.grover.error_budget import TABLE1_BUDGET, ERROR_LABELS
+from demo.grover.error_budget import TABLE1_BUDGET, ERROR_LABELS, ERROR_HELP
 from demo.grover.history import history_row
 
 ROOT = Path(__file__).resolve().parent
@@ -14,7 +16,14 @@ st.markdown("""<style>
 .block-container {max-width: 1450px; padding-top: 5rem;}
 h1 {letter-spacing: -.045em; font-weight: 750;}
 [data-testid="stMetric"] {background: #f3f6fa; padding: 18px; border-radius: 12px;}
+[data-testid="stMetricValue"], [data-testid="stMetricValue"] > div {
+    font-size: clamp(1.25rem, 2vw, 1.75rem); white-space: normal; text-overflow: clip; overflow: visible;}
+[data-testid="stMetricLabel"] p {white-space: normal; overflow: visible;}
 [data-testid="stSidebar"] {border-right: 1px solid #dce4ee;}
+[data-testid="stWidgetLabel"] > div:has([data-testid="stTooltipIcon"]) {flex:0 0 auto; justify-content:flex-start; margin-left:6px;}
+[data-testid="stTooltipIcon"], [data-testid="stTooltipIcon"] * {cursor:pointer !important;}
+[data-testid="stTooltipContent"] {background:#172b42 !important; color:white !important; max-width:280px; padding:10px 12px !important; border-radius:8px !important; box-shadow:0 3px 12px #172b4230; font-size:14px; line-height:1.45;}
+[data-testid="stTooltipContent"] * {color:white !important; font-size:14px; line-height:1.45;}
 .eyebrow {color: #087f73; letter-spacing: .16em; font-size: .78rem; font-weight: 700; line-height: 1.5;}
 </style>""", unsafe_allow_html=True)
 
@@ -62,7 +71,7 @@ def nature_page():
     st.title("Distributed Grover's Algorithm (2 Qubits, 2 Nodes)")
     st.write("Reproduce the distributed Grover experiment from Main et al., "
              "[Distributed quantum computing across an optical network link](https://www.nature.com/articles/s41586-024-08404-x), "
-             "Nature 638, 383–388 (2025).")
+             "Nature 638, 383-388 (2025).")
     left, right = st.columns([1, 1.6], gap="large")
     with left:
         st.subheader("The Quantum Network")
@@ -71,20 +80,32 @@ def nature_page():
         with st.form("nature_controls"):
             bell, budget, local_error, readout_error = 1.0, {name: [0.0, 0.0] for name in ERROR_LABELS}, 0.0, 0.0
             if model == "Detailed":
-                bell = st.slider("Bell-pair fidelity", 0.5, 1.0, 0.9689, 0.0001, format="%.4f")
-                error_rows = [{"Error source": label.replace(" (Z dephasing)", ""), "Alice (A)": 100 * TABLE1_BUDGET[name][0],
+                bell = st.slider("Bell-pair fidelity", 0.5, 1.0, 0.9689, 0.0001, format="%.4f", help=ERROR_HELP["raw_entanglement"])
+                error_rows = [{"Alice (A)": 100 * TABLE1_BUDGET[name][0],
                                "Bob (B)": 100 * TABLE1_BUDGET[name][1]} for name, label in ERROR_LABELS.items()]
-                edited_errors = st.data_editor(error_rows, hide_index=True, num_rows="fixed", width="stretch", height=220,
-                                               disabled=["Error source"], key="nature_error_table",
-                                               column_config={"Error source": st.column_config.TextColumn(width="medium"),
-                                                              "Alice (A)": st.column_config.NumberColumn(width="small", min_value=0.0, max_value=50.0, step=0.001, format="%.3f", required=True),
-                                                              "Bob (B)": st.column_config.NumberColumn(width="small", min_value=0.0, max_value=50.0, step=0.001, format="%.3f", required=True)})
+                names_column, values_column = st.columns([1.6, 1.35], gap=None)
+                with names_column:
+                    source_rows = "".join(f'<div class="error-source-row"><span>{escape(label.replace(" (Z dephasing)", ""))}</span><span class="error-source-trigger" tabindex="0" aria-label="Help for {escape(label, quote=True)}"><span class="error-source-icon" aria-hidden="true">?</span><span class="error-source-tooltip" role="tooltip">{escape(ERROR_HELP[name])}</span></span></div>' for name, label in ERROR_LABELS.items())
+                    st.html('''<style>
+                        .error-source-list {border:1px solid #dce4ee; border-radius:8px 0 0 8px; color:#172b42; font-size:14px;}
+                        .error-source-row {height:35px; box-sizing:border-box; display:flex; align-items:center; padding:0 8px; border-top:1px solid #e5eaf1;}
+                        .error-source-trigger {position:relative; display:inline-flex; align-items:center; margin-left:4px; cursor:pointer;}
+                        .error-source-icon {display:inline-flex; align-items:center; justify-content:center; width:12px; height:12px; border:1.4px solid #7d899b; border-radius:50%; color:#7d899b; font-size:10px; font-weight:600; line-height:1; text-decoration:none;}
+                        .error-source-tooltip {display:none; position:absolute; left:0; bottom:calc(100% + 8px); width:280px; max-width:70vw; padding:10px 12px; border-radius:8px; background:#172b42; color:white; font-size:14px; line-height:1.45; font-weight:400; text-decoration:none; box-shadow:0 3px 12px #172b4230; z-index:10000; pointer-events:none;}
+                        .error-source-trigger:hover .error-source-tooltip, .error-source-trigger:focus .error-source-tooltip {display:block;}
+                        .error-source-heading {height:35px; box-sizing:border-box; display:flex; align-items:center; padding:0 8px; background:#f7f9fc; color:#52647a; border-radius:8px 0 0 0;}
+                        </style><div class="error-source-list"><div class="error-source-heading">Error source (%)</div>''' + source_rows + '</div>')
+                with values_column:
+                    edited_errors = st.data_editor(error_rows, hide_index=True, num_rows="fixed", width="stretch", height=212, row_height=35,
+                                                   key="nature_error_table",
+                                                   column_config={"Alice (A)": st.column_config.NumberColumn("Alice (A)", width="small", min_value=0.0, max_value=50.0, step=0.001, format="%.3f", required=True),
+                                                                  "Bob (B)": st.column_config.NumberColumn("Bob (B)", width="small", min_value=0.0, max_value=50.0, step=0.001, format="%.3f", required=True)})
                 budget = {name: [row["Alice (A)"] / 100, row["Bob (B)"] / 100] for name, row in zip(ERROR_LABELS, edited_errors)}
                 local, readout = st.columns(2)
-                local_error = local.number_input("Local H/X error (%)", min_value=0.0, max_value=50.0, value=0.01, step=0.001, format="%.3f") / 100
-                readout_error = readout.number_input("Final readout error (%)", min_value=0.0, max_value=100.0, value=0.5, step=0.01, format="%.3f") / 100
+                local_error = local.number_input("Local H/X error (%)", min_value=0.0, max_value=50.0, value=0.01, step=0.001, format="%.3f", help=ERROR_HELP["local_gate"]) / 100
+                readout_error = readout.number_input("Final readout error (%)", min_value=0.0, max_value=100.0, value=0.5, step=0.01, format="%.3f", help=ERROR_HELP["readout"]) / 100
             shots_column, seed_column = st.columns(2)
-            shots = shots_column.select_slider("Shots per marked state", options=[100, 250, 500, 1000, 2000], value=100)
+            shots = shots_column.select_slider("Shots per marked state", options=[50, 100, 250, 500, 1000], value=100)
             seed = seed_column.number_input("Random seed", min_value=0, max_value=1000000, value=1, key="nature_seed")
             if st.form_submit_button("Run distributed Grover", type="primary", disabled="job" in st.session_state):
                 launch({"scenario": "nature", "model": model, "bell": bell, "budget": budget,
@@ -125,7 +146,6 @@ def nature_page():
         st.write("The live run uses the existing density-matrix telegate and BSM pipeline, with the compiler fixed. The detailed model uses the Table 1 budget plus local-gate and final-readout errors. The noiseless control disables these noise channels.")
         st.write("These are effective calibrated noise models. Bell errors are injected after the gate; this view does not claim microscopic trapped-ion modeling. Link distance is fixed by the existing reproduction pipeline, and decoherence is a fixed error-budget term.")
         st.write("The latest reference reports 72.9% average success for the detailed model over 10,000 shots per marked state, compared with the experimental 71% average. Finite-shot live runs will vary. The shaded experimental band is not a 95% confidence interval.")
-        st.caption(reference["source"])
 
 
 def saved_exploration():
@@ -181,32 +201,29 @@ def live_exploration():
     left, right = st.columns([1, 1.6], gap="large")
     with left:
         with st.container(border=True):
-            paper = st.checkbox("Use paper topology setup", value=False)
-            suffix = "paper" if paper else "custom"
-            qubits = st.selectbox("Search qubits", [3, 4, 5, 6], index=3 if paper else 1, disabled=paper, key=f"qubits_{suffix}")
+            suffix = "custom"
+            qubits = st.selectbox("Search qubits", [3, 4, 5, 6], index=1, key=f"qubits_{suffix}")
             st.caption(f"Total qubits: {2 * qubits - 2} ({qubits} search + {qubits - 2} ancillas)")
             node_options = [count for count in range(2, 2 * qubits - 1) if (2 * qubits - 2) % count == 0]
             node_key = f"nodes_{suffix}"
             if node_key in st.session_state and st.session_state[node_key] not in node_options:
                 st.session_state[node_key] = node_options[-1]
-            modules = st.selectbox("Quantum nodes", node_options, index=len(node_options) - 1 if paper else 0, disabled=paper, key=node_key)
+            modules = st.selectbox("Quantum nodes", node_options, index=0, key=node_key)
             topology_options = ["Star", "Grid", "Caveman"] if modules % 2 == 0 else ["Star", "Grid"]
             topology = st.selectbox("Network topology", topology_options)
-            compiler = st.selectbox("Compiler", ["QAP", "Random", "FGP · default", "FGP · low margin"], index=2 if paper else 0, disabled=paper, key=f"compiler_{suffix}")
-            link = st.slider("Fiber length parameter (km)", 0.01, 20.0, 5.0, 0.01, format="%.2f", disabled=paper, key=f"link_{suffix}")
-            efficiency = st.slider("Quantum Memory efficiency", 0.5, 1.0, 0.9, 0.05, disabled=paper, key=f"efficiency_{suffix}")
+            compiler = st.selectbox("Compiler", ["QAP", "Random", "FGP · default", "FGP · low margin"], index=0, key=f"compiler_{suffix}")
+            link = st.slider("Fiber length parameter (km)", 0.01, 20.0, 5.0, 0.01, format="%.2f", key=f"link_{suffix}")
+            efficiency = st.slider("Quantum Memory efficiency", 0.5, 1.0, 0.9, 0.05, key=f"efficiency_{suffix}")
             noise_column, quality_column = st.columns(2)
-            noise = noise_column.checkbox("Include hardware noise", value=True, disabled=paper, key=f"noise_{suffix}")
-            z = quality_column.select_slider("Hardware quality (z)", options=[0.00, 0.25, 0.50, 0.65, 0.80, 0.90, 0.95, 1.00], value=0.95, format_func=lambda value: f"{value:.2f}", disabled=paper or not noise, key=f"z_{suffix}")
+            noise = noise_column.checkbox("Include hardware noise", value=True, key=f"noise_{suffix}")
+            z = quality_column.select_slider("Hardware quality (z)", options=[0.00, 0.25, 0.50, 0.65, 0.80, 0.90, 0.95, 1.00], value=0.95, format_func=lambda value: f"{value:.2f}", disabled=not noise, key=f"z_{suffix}")
             st.caption("Higher z improves hardware quality. This setting applies when hardware noise is enabled.")
             shots_column, seed_column = st.columns(2)
-            shots = shots_column.select_slider("Simulation shots", options=[1, *range(5, 251, 5)], value=250 if paper else 5, key=f"shots_{suffix}")
-            seed = seed_column.number_input("Random seed", min_value=0, max_value=1000000, value=0 if paper else 1, key=f"explore_seed_{suffix}")
-            if paper:
-                st.caption("6 search qubits + 4 ancillas · 10 nodes · 1 data slot per node · FGP · 8 communication slots · z = 0.95. Reduce shots for a quick preview; saved manuscript results show the reported comparison.")
-            if st.button("Compile and simulate", type="primary", disabled="job" in st.session_state):
+            shots = shots_column.select_slider("Simulation shots", options=[1, *range(5, 251, 5)], value=5, key=f"shots_{suffix}")
+            seed = seed_column.number_input("Random seed", min_value=0, max_value=1000000, value=1, key=f"explore_seed_{suffix}")
+            if st.button("Run distributed Grover", type="primary", disabled="job" in st.session_state):
                 launch({"scenario": "exploration", "qubits": qubits, "modules": modules, "topology": topology,
-                        "compiler": compiler, "link_km": link, "efficiency": efficiency, "noise": noise, "z": z, "shots": shots, "seed": seed, "paper_setup": paper})
+                        "compiler": compiler, "link_km": link, "efficiency": efficiency, "noise": noise, "z": z, "shots": shots, "seed": seed})
                 st.rerun()
     with right:
         st.caption(f"SELECTED NETWORK · {topology} · {modules} nodes")
@@ -218,19 +235,36 @@ def live_exploration():
         result = history[-1]
         config = result["config"]
         st.caption(f"LATEST COMPLETED RUN · {config['topology']} · {config['compiler']} · {result['total_shots']} shots")
-        columns = st.columns(4)
+        columns = st.columns([1.25, 1.5, 1, 1, 1.1])
         columns[0].metric("Success Probability", f"{result['success']:.1%}")
         columns[1].metric("Execution time", f"{result['sim_ms']:.1f} ms")
         columns[2].metric("Remote gates", result["gates"])
         columns[3].metric("Qubit moves", result["moves"])
-        st.caption("Small shot counts are for interaction; use the saved 1,000-shot datasets for more precise success comparisons. Simulated execution time differs from laptop wall time.")
-        st.dataframe([{"Run": i + 1, "Network": r["config"]["topology"], "Compiler": r["config"]["compiler"],
+        columns[4].metric("Wall time", f"{result['wall_seconds']:.1f} s")
+        history_table = pd.DataFrame([{"Run": i + 1, "Network": r["config"]["topology"], "Compiler": r["config"]["compiler"],
                        "Fiber (km)": r["config"]["link_km"], "Memory efficiency": r["config"]["efficiency"],
                        "Noise": r["config"]["noise"], "z": r["config"].get("z", 0.95) if r["config"]["noise"] else None,
                        "Seed": r["config"]["seed"], "Search qubits": r["config"]["qubits"],
-                       "Nodes": r["config"]["modules"], "Time (ms)": round(r["sim_ms"], 2),
+                       "Nodes": r["config"]["modules"], "Time (ms)": round(r["sim_ms"], 2), "Wall time (s)": round(r["wall_seconds"], 1),
                        "Remote gates": r["gates"], "Moves": r["moves"], "Success (%)": round(r["success"] * 100, 1),
-                       "Shots": r["total_shots"]} for i, r in enumerate(history)], hide_index=True, width="stretch")
+                       "Shots": r["total_shots"]} for i, r in enumerate(history)])
+        history_table = history_table.sort_values("Run", ascending=False)
+        headers = {"Fiber (km)": ("Fiber", "(km)"), "Memory efficiency": ("Memory", "efficiency"),
+                   "Search qubits": ("Search", "qubits"), "Time (ms)": ("Time", "(ms)"),
+                   "Wall time (s)": ("Wall time", "(s)"), "Remote gates": ("Remote", "gates"),
+                   "Success (%)": ("Success", "(%)")}
+        heading = "<thead><tr>" + "".join("<th>" + "<br>".join(escape(part) for part in headers.get(name, (name,)) if part) + "</th>" for name in history_table.columns) + "</tr></thead>"
+        table_html = history_table.to_html(index=False, header=False, border=0, classes="run-history-table", float_format=lambda value: f"{value:g}")
+        table_html = table_html.replace("<tbody>", heading + "<tbody>", 1)
+        st.html("""<style>
+            .run-history-scroll {overflow-x:auto; border:1px solid #dce4ee; border-radius:10px;}
+            .run-history-table {border-collapse:collapse; width:100%; font-size:14px; color:#172b42;}
+            .run-history-table th {background:#f7f9fc; color:#52647a; font-weight:500;
+                text-align:center; vertical-align:middle; line-height:1.35; padding:9px 12px; white-space:nowrap;}
+            .run-history-table td {padding:9px 12px; text-align:right; white-space:nowrap; border-top:1px solid #e5eaf1;}
+            .run-history-table td:nth-child(2), .run-history-table td:nth-child(3) {text-align:left;}
+            .run-history-table tbody tr:hover {background:#f3f8fb;}
+            </style><div class="run-history-scroll">""" + table_html + "</div>")
         results_download({"runs": history}, "exploration")
 
 

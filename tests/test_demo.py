@@ -49,7 +49,7 @@ class AppTests(unittest.TestCase):
         self.assertEqual(table["Distribution"].tolist(), ["balanced", "mid", "skewed"])
         self.assertEqual(table["Time (ms)"].tolist(), [410.72, 261.96, 165.52])
         self.assertEqual(table["Success (%)"].tolist(), [27., 49.7, 52.6])
-        self.assertFalse(any(button.label == "Compile and simulate" for button in app.button))
+        self.assertFalse(any(button.label == "Simulate" for button in app.button))
 
     def test_star_has_centered_hub_and_spokes(self):
         from demo.charts import network
@@ -62,16 +62,20 @@ class AppTests(unittest.TestCase):
             self.assertEqual((edge.x[0], edge.y[0]), (0., 0.))
         self.assertEqual(len(network("Star", 2).data[-1].x), 2)
 
-    def test_paper_topology_preset(self):
+    def test_live_controls_are_editable(self):
         app = AppTest.from_file(APP, default_timeout=20).run()
         radio(app, "Explore").set_value("Networks & compilers").run()
         radio(app, "Experience").set_value("Live simulation").run()
-        next(w for w in app.checkbox if w.label == "Use paper topology setup").check().run()
+        self.assertFalse(any(w.label == "Use paper topology setup" for w in app.checkbox))
+        next(w for w in app.selectbox if w.label == "Search qubits").set_value(6).run()
+        next(w for w in app.selectbox if w.label == "Quantum nodes").set_value(10).run()
+        next(w for w in app.selectbox if w.label == "Compiler").set_value("FGP · default").run()
         self.assertFalse(app.exception)
         self.assertEqual(next(w for w in app.selectbox if w.label == "Search qubits").value, 6)
         self.assertEqual(next(w for w in app.selectbox if w.label == "Quantum nodes").value, 10)
         self.assertEqual(next(w for w in app.selectbox if w.label == "Compiler").value, "FGP · default")
-        self.assertEqual(next(w for w in app.select_slider if w.label == "Simulation shots").value, 250)
+        self.assertEqual(next(w for w in app.select_slider if w.label == "Simulation shots").value, 5)
+        self.assertTrue(all(not w.disabled for w in app.selectbox))
 
     def test_ten_node_graphs_match_engine(self):
         from demo.simulation import connect_sources
@@ -125,7 +129,7 @@ class AppTests(unittest.TestCase):
         self.assertFalse(app.exception)
         radio(app, "Experience").set_value("Live simulation").run()
         self.assertFalse(app.exception)
-        self.assertTrue(any(b.label == "Compile and simulate" for b in app.button))
+        self.assertTrue(any(b.label == "Simulate" for b in app.button))
         self.assertEqual(next(w for w in app.selectbox if w.label == "Search qubits").options, ["3", "4", "5", "6"])
         self.assertEqual(next(w for w in app.selectbox if w.label == "Network topology").options, ["Star", "Grid", "Caveman"])
         self.assertEqual(next(w for w in app.selectbox if w.label == "Quantum nodes").options, ["2", "3", "6"])
@@ -139,7 +143,7 @@ class AppTests(unittest.TestCase):
         self.assertEqual(quality.options, ["0.00", "0.25", "0.50", "0.65", "0.80", "0.90", "0.95", "1.00"])
         quality.set_value(0.25)
         with patch("demo.jobs.start", return_value={"config": {}}) as start, patch("demo.jobs.poll", return_value=("running", {"value": 0, "message": "Testing submission"})):
-            next(b for b in app.button if b.label == "Compile and simulate").click().run()
+            next(b for b in app.button if b.label == "Simulate").click().run()
         submitted = start.call_args.args[0]
         self.assertEqual((submitted["link_km"], submitted["shots"], submitted["z"]), (20.0, 250, 0.25))
         self.assertFalse(app.exception)
